@@ -112,7 +112,9 @@ def fetch_insights(account_id, access_token, days=30, level="campaign",
         breakdown_fields = BREAKDOWNS[breakdown]
         params["breakdowns"] = breakdown_fields
 
-    insights = list(account.get_insights(fields=METRICS, params=params))
+    insights = meta_campaigns.api_call_with_retry(
+        lambda: list(account.get_insights(fields=METRICS, params=params))
+    )
     return [meta_campaigns.to_plain(dict(i)) for i in insights]
 
 

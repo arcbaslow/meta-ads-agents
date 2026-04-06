@@ -104,7 +104,9 @@ def fetch_pixel_events(account_id, access_token, days=7):
         "action_breakdowns": ["action_type"],
     }
     fields = ["actions", "action_values"]
-    insights = list(account.get_insights(fields=fields, params=params))
+    insights = meta_campaigns.api_call_with_retry(
+        lambda: list(account.get_insights(fields=fields, params=params))
+    )
 
     event_counts = {}
     event_values = {}

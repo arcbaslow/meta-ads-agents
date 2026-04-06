@@ -47,5 +47,33 @@ class TestOutputFormat(unittest.TestCase):
         self.assertEqual(len(result[0]["adsets"][0]["ads"]), 1)
 
 
+class TestRetryWrapper(unittest.TestCase):
+    def test_succeeds_on_first_try(self):
+        call_count = [0]
+        def good_fn():
+            call_count[0] += 1
+            return "ok"
+        result = meta_campaigns.api_call_with_retry(good_fn, max_retries=3, base_delay=0)
+        self.assertEqual(result, "ok")
+        self.assertEqual(call_count[0], 1)
+
+    def test_retries_on_rate_limit(self):
+        call_count = [0]
+        def flaky_fn():
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise Exception("too many calls")
+            return "ok"
+        result = meta_campaigns.api_call_with_retry(flaky_fn, max_retries=3, base_delay=0)
+        self.assertEqual(result, "ok")
+        self.assertEqual(call_count[0], 3)
+
+    def test_raises_after_max_retries(self):
+        def always_fails():
+            raise Exception("rate limited")
+        with self.assertRaises(Exception):
+            meta_campaigns.api_call_with_retry(always_fails, max_retries=2, base_delay=0)
+
+
 if __name__ == "__main__":
     unittest.main()
