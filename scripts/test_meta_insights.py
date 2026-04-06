@@ -35,5 +35,14 @@ class TestInsightsFields(unittest.TestCase):
                           f"{field} missing from METRICS — agents need entity names in insights rows")
 
 
+class TestAttributionParams(unittest.TestCase):
+    def test_build_attribution_params(self):
+        params = meta_insights.build_attribution_params(days=30, level="campaign")
+        self.assertIn("action_attribution_windows", params)
+        self.assertEqual(params["action_attribution_windows"], ["1d_click", "7d_click", "1d_view"])
+        self.assertEqual(params["action_breakdowns"], ["action_type"])
+        self.assertEqual(params["level"], "campaign")
+
+
 if __name__ == "__main__":
     unittest.main()
