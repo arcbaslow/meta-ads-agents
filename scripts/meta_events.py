@@ -29,6 +29,27 @@ def classify_event(event_name):
     return "custom"
 
 
+def detect_capi_status(pixel_data, server_events):
+    """Determine CAPI status from pixel data and server event list.
+
+    Args:
+        pixel_data: dict with pixel id/name
+        server_events: list of dicts with event_name and source fields
+
+    Returns:
+        dict with has_capi bool, server_events list, and pixel info
+    """
+    server_event_names = [
+        e.get("event_name") for e in server_events
+        if e.get("source") == "server"
+    ]
+    return {
+        **pixel_data,
+        "has_capi": len(server_event_names) > 0,
+        "server_events": server_event_names,
+    }
+
+
 def build_funnel(event_counts):
     """Build a conversion funnel from event counts.
 
@@ -101,7 +122,7 @@ def fetch_pixel_events(account_id, access_token, days=7):
 
 
 def fetch_pixel_health(account_id, access_token):
-    """Check pixel configuration and health status."""
+    """Check pixel configuration and health status, including CAPI detection."""
     from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
 
@@ -115,9 +136,33 @@ def fetch_pixel_health(account_id, access_token):
 
     pixel_data = []
     for pixel in pixels:
-        pixel_dict = dict(pixel)
-        pixel_dict["has_capi"] = False  # Will be determined by server events
-        pixel_data.append(pixel_dict)
+        pixel_dict = meta_campaigns.to_plain(dict(pixel))
+
+        # Try to detect CAPI by querying pixel stats for server events
+        server_events = []
+        try:
+            from facebook_business.adobjects.adspixel import AdsPixel
+            from datetime import date, timedelta
+            px = AdsPixel(pixel_dict["id"], api=api)
+            stats = list(px.get_stats(params={
+                "aggregation": "event",
+                "start_time": (date.today() - timedelta(days=3)).isoformat(),
+                "end_time": date.today().isoformat(),
+            }))
+            for stat in stats:
+                stat_dict = meta_campaigns.to_plain(dict(stat))
+                for entry in stat_dict.get("data", []):
+                    if entry.get("source") == "server" and entry.get("value", 0) > 0:
+                        server_events.append({
+                            "event_name": entry.get("event"),
+                            "source": "server",
+                        })
+        except Exception:
+            # pixel stats may require extra permissions or hit rate limits
+            pass
+
+        result = detect_capi_status(pixel_dict, server_events)
+        pixel_data.append(result)
 
     return pixel_data
 
