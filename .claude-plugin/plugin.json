@@ -1,0 +1,26 @@
+{
+  "name": "claude-meta-ads",
+  "version": "1.0.0",
+  "description": "Meta Ads analysis plugin for Claude Code. Multi-agent campaign performance analysis, creative fatigue detection, audience insights, Pixel/CAPI event tracking, budget optimization, and attribution modeling across multiple ad accounts.",
+  "author": {
+    "name": "arcbaslow",
+    "url": "https://github.com/arcbaslow"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/arcbaslow/claude-meta-ads",
+  "repository": "https://github.com/arcbaslow/claude-meta-ads",
+  "keywords": [
+    "meta-ads",
+    "facebook-ads",
+    "instagram-ads",
+    "campaign-analysis",
+    "creative-fatigue",
+    "audience-insights",
+    "pixel-tracking",
+    "capi",
+    "budget-optimization",
+    "attribution",
+    "roas",
+    "marketing-api"
+  ]
+}
