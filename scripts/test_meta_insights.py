@@ -28,5 +28,12 @@ class TestMetricAggregation(unittest.TestCase):
         self.assertAlmostEqual(result["avg_ctr"], 98 / 2200 * 100, places=2)
 
 
+class TestInsightsFields(unittest.TestCase):
+    def test_metrics_include_entity_names(self):
+        for field in ["campaign_name", "adset_name", "ad_name", "adset_id", "campaign_id", "ad_id"]:
+            self.assertIn(field, meta_insights.METRICS,
+                          f"{field} missing from METRICS — agents need entity names in insights rows")
+
+
 if __name__ == "__main__":
     unittest.main()
