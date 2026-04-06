@@ -33,5 +33,23 @@ class TestFunnelBuilder(unittest.TestCase):
         self.assertAlmostEqual(funnel[4]["conversion_rate"], 1.0)
 
 
+class TestCAPIDetection(unittest.TestCase):
+    def test_detect_capi_from_server_events(self):
+        pixel_data = {"id": "123", "name": "Test"}
+        server_events = [
+            {"event_name": "Purchase", "source": "server"},
+            {"event_name": "ViewContent", "source": "server"},
+        ]
+        result = meta_events.detect_capi_status(pixel_data, server_events)
+        self.assertTrue(result["has_capi"])
+        self.assertEqual(result["server_events"], ["Purchase", "ViewContent"])
+
+    def test_no_capi_without_server_events(self):
+        pixel_data = {"id": "123", "name": "Test"}
+        result = meta_events.detect_capi_status(pixel_data, [])
+        self.assertFalse(result["has_capi"])
+        self.assertEqual(result["server_events"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
