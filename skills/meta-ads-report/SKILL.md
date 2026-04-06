@@ -20,7 +20,8 @@ metadata:
 2. Collect data from all analysis scripts (or use cached data from recent audit)
 3. Spawn relevant agents to generate analysis sections
 4. Compile report data into JSON structure
-5. Generate report: `python scripts/meta_report.py --input <data.json> --format pdf`
+5. Generate report: `python scripts/meta_report.py --input <data.json> --format both`
+   This produces both .md and .pdf files. Use `--format md` for markdown only or `--format pdf` for PDF only.
 
 ## Report Sections
 
