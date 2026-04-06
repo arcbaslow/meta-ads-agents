@@ -11,6 +11,9 @@ import meta_auth
 import meta_campaigns
 
 METRICS = [
+    "campaign_id", "campaign_name",
+    "adset_id", "adset_name",
+    "ad_id", "ad_name",
     "spend", "impressions", "reach", "frequency", "clicks", "cpc", "cpm",
     "ctr", "actions", "action_values", "cost_per_action_type",
     "cost_per_unique_click", "unique_clicks", "unique_ctr",
@@ -99,7 +102,7 @@ def fetch_insights(account_id, access_token, days=30, level="campaign",
         params["breakdowns"] = breakdown_fields
 
     insights = list(account.get_insights(fields=METRICS, params=params))
-    return [dict(i) for i in insights]
+    return [meta_campaigns.to_plain(dict(i)) for i in insights]
 
 
 def main():
