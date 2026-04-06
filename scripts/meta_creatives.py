@@ -10,15 +10,41 @@ import meta_campaigns
 
 
 def detect_format(creative):
-    """Detect creative format: image, video, carousel, or unknown."""
+    """Detect creative format: image, video, carousel, or unknown.
+
+    Checks effective_object_story_spec first (most reliable from ads endpoint),
+    then object_type, then legacy creative fields as fallback.
+    """
+    # Check effective_object_story_spec (from ads endpoint)
+    ess = creative.get("effective_object_story_spec", {})
+    if ess.get("video_data"):
+        return "video"
+    if ess.get("photo_data"):
+        return "image"
+    link_data = ess.get("link_data", {})
+    if link_data.get("child_attachments"):
+        return "carousel"
+
+    # Check object_type field
+    obj_type = creative.get("object_type", "").upper()
+    if obj_type == "VIDEO":
+        return "video"
+    if obj_type == "PHOTO":
+        return "image"
+
+    # Legacy creative fields fallback
     if creative.get("video_id"):
         return "video"
     if creative.get("image_url"):
         return "image"
+
+    # Check object_story_spec (old path)
     oss = creative.get("object_story_spec", {})
-    link_data = oss.get("link_data", {})
-    if link_data.get("child_attachments"):
+    if oss.get("video_data"):
+        return "video"
+    if oss.get("link_data", {}).get("child_attachments"):
         return "carousel"
+
     return "unknown"
 
 
@@ -53,7 +79,7 @@ def fetch_creatives(account_id, access_token):
         "call_to_action_type", "link_url", "status",
     ]
     creatives = list(account.get_ad_creatives(fields=fields))
-    return [dict(c) for c in creatives]
+    return [meta_campaigns.to_plain(dict(c)) for c in creatives]
 
 
 def fetch_creatives_with_metrics(account_id, access_token, days=30):
@@ -81,12 +107,17 @@ def fetch_creatives_with_metrics(account_id, access_token, days=30):
     creative_map = {c["id"]: c for c in creatives}
 
     # Fetch ads to link creative IDs
-    ads = list(account.get_ads(fields=["id", "creative"]))
+    ads = list(account.get_ads(fields=["id", "creative", "effective_object_story_spec"]))
     ad_to_creative = {}
+    ad_ess = {}
     for ad in ads:
-        cid = ad.get("creative", {}).get("id")
+        ad_dict = meta_campaigns.to_plain(dict(ad))
+        cid = ad_dict.get("creative", {}).get("id")
         if cid:
-            ad_to_creative[ad["id"]] = cid
+            ad_to_creative[ad_dict["id"]] = cid
+        ess = ad_dict.get("effective_object_story_spec", {})
+        if ess:
+            ad_ess[ad_dict["id"]] = ess
 
     # Join insights with creatives
     result = []
@@ -94,11 +125,15 @@ def fetch_creatives_with_metrics(account_id, access_token, days=30):
         ad_id = insight.get("ad_id")
         creative_id = ad_to_creative.get(ad_id)
         creative = creative_map.get(creative_id, {})
+        # Merge effective_object_story_spec from ad into creative for format detection
+        merged = {**creative}
+        if ad_id in ad_ess:
+            merged["effective_object_story_spec"] = ad_ess[ad_id]
         entry = {
             "ad_id": ad_id,
             "ad_name": insight.get("ad_name"),
             "creative_id": creative_id,
-            "format": detect_format(creative),
+            "format": detect_format(merged),
             "title": creative.get("title"),
             "body": creative.get("body"),
             "image_url": creative.get("image_url"),
