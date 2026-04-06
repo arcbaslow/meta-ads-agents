@@ -13,6 +13,36 @@ CACHE_DIR = "/tmp/claude-meta-ads"
 CACHE_TTL = 900  # 15 minutes
 
 
+def to_plain(obj):
+    """Recursively convert Meta SDK objects to JSON-serializable dicts/lists."""
+    if isinstance(obj, dict):
+        return {k: to_plain(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [to_plain(v) for v in obj]
+    if hasattr(obj, 'export_all_data'):
+        return to_plain(obj.export_all_data())
+    if hasattr(obj, '_data'):
+        return to_plain(dict(obj._data))
+    return obj
+
+
+def api_call_with_retry(fn, max_retries=3, base_delay=2):
+    """Call fn() with exponential backoff on failure.
+
+    Retries on any exception (typically Meta API rate limit error 80004).
+    Delays: base_delay, base_delay*2, base_delay*4, ...
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except Exception:
+            if attempt == max_retries:
+                raise
+            delay = base_delay * (2 ** attempt)
+            if delay > 0:
+                time.sleep(delay)
+
+
 def read_cache(account_id, key, ttl_seconds=CACHE_TTL):
     """Read cached JSON data if it exists and hasn't expired."""
     path = os.path.join(CACHE_DIR, f"{account_id}_{key}.json")
@@ -52,7 +82,7 @@ def fetch_campaigns(account_id, access_token, active_only=False):
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
     campaigns = list(account.get_campaigns(fields=fields, params=params))
-    return [dict(c) for c in campaigns]
+    return [to_plain(dict(c)) for c in campaigns]
 
 
 def fetch_adsets(account_id, access_token, active_only=False):
@@ -74,7 +104,7 @@ def fetch_adsets(account_id, access_token, active_only=False):
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
     adsets = list(account.get_ad_sets(fields=fields, params=params))
-    return [dict(a) for a in adsets]
+    return [to_plain(dict(a)) for a in adsets]
 
 
 def fetch_ads(account_id, access_token, active_only=False):
@@ -94,7 +124,7 @@ def fetch_ads(account_id, access_token, active_only=False):
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
     ads = list(account.get_ads(fields=fields, params=params))
-    return [dict(a) for a in ads]
+    return [to_plain(dict(a)) for a in ads]
 
 
 def build_hierarchy(campaigns, adsets, ads):

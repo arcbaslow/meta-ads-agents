@@ -78,7 +78,9 @@ def fetch_creatives(account_id, access_token):
         "video_id", "thumbnail_url", "object_story_spec",
         "call_to_action_type", "link_url", "status",
     ]
-    creatives = list(account.get_ad_creatives(fields=fields))
+    creatives = meta_campaigns.api_call_with_retry(
+        lambda: list(account.get_ad_creatives(fields=fields))
+    )
     return [meta_campaigns.to_plain(dict(c)) for c in creatives]
 
 
@@ -100,14 +102,18 @@ def fetch_creatives_with_metrics(account_id, access_token, days=30):
         "level": "ad",
     }
     fields = ["ad_id", "ad_name", "spend", "impressions", "clicks", "ctr", "frequency", "actions"]
-    insights = list(account.get_insights(fields=fields, params=params))
+    insights = meta_campaigns.api_call_with_retry(
+        lambda: list(account.get_insights(fields=fields, params=params))
+    )
 
     # Fetch creatives
     creatives = fetch_creatives(account_id, access_token)
     creative_map = {c["id"]: c for c in creatives}
 
     # Fetch ads to link creative IDs
-    ads = list(account.get_ads(fields=["id", "creative", "effective_object_story_spec"]))
+    ads = meta_campaigns.api_call_with_retry(
+        lambda: list(account.get_ads(fields=["id", "creative", "effective_object_story_spec"]))
+    )
     ad_to_creative = {}
     ad_ess = {}
     for ad in ads:

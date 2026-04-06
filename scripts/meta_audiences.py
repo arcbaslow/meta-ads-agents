@@ -60,12 +60,14 @@ def fetch_custom_audiences(account_id, access_token):
     account = AdAccount(account_id, api=api)
 
     fields = [
-        "id", "name", "subtype", "approximate_count",
+        "id", "name", "subtype",
         "data_source", "delivery_status", "operation_status",
         "retention_days", "time_created", "time_updated",
     ]
-    audiences = list(account.get_custom_audiences(fields=fields))
-    return [dict(a) for a in audiences]
+    audiences = meta_campaigns.api_call_with_retry(
+        lambda: list(account.get_custom_audiences(fields=fields))
+    )
+    return [meta_campaigns.to_plain(dict(a)) for a in audiences]
 
 
 def fetch_adset_targeting(account_id, access_token):
