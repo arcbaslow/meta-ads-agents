@@ -75,6 +75,17 @@ def extract_conversions(actions):
     return conversions
 
 
+def build_attribution_params(days=30, level="campaign"):
+    """Build API params for attribution window breakdown."""
+    start_date, end_date = compute_date_range(days)
+    return {
+        "time_range": {"since": start_date, "until": end_date},
+        "level": level,
+        "action_breakdowns": ["action_type"],
+        "action_attribution_windows": ["1d_click", "7d_click", "1d_view"],
+    }
+
+
 def fetch_insights(account_id, access_token, days=30, level="campaign",
                    breakdown=None, time_increment=None):
     """Fetch insights from Meta Marketing API."""
@@ -113,10 +124,13 @@ def main():
                         help="Reporting level (default: campaign)")
     parser.add_argument("--breakdown", choices=list(BREAKDOWNS.keys()), help="Breakdown dimension")
     parser.add_argument("--daily", action="store_true", help="Show daily time series")
+    parser.add_argument("--attribution", action="store_true",
+                        help="Break down conversions by attribution window (1d click, 7d click, 1d view)")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
     parser.add_argument("--json", action="store_true", default=True, help="Output as JSON")
 
     args = parser.parse_args()
+    account_id = args.account
 
     creds = meta_auth.load_credentials()
     if not creds:
@@ -135,6 +149,37 @@ def main():
             return
 
     time_increment = "1" if args.daily else None
+
+    if args.attribution:
+        cache_key = f"insights_{args.level}_{args.days}d_attribution"
+        if not args.no_cache:
+            cached = meta_campaigns.read_cache(args.account, cache_key)
+            if cached:
+                print(json.dumps(cached, indent=2))
+                return
+
+        from facebook_business.api import FacebookAdsApi
+        from facebook_business.adobjects.adaccount import AdAccount
+        api = FacebookAdsApi.init(access_token=token)
+        account = AdAccount(account_id, api=api)
+
+        params = build_attribution_params(args.days, args.level)
+        raw = list(account.get_insights(fields=METRICS, params=params))
+        raw = [meta_campaigns.to_plain(dict(r)) for r in raw]
+
+        result = {
+            "status": "ok",
+            "account_id": account_id,
+            "days": args.days,
+            "level": args.level,
+            "attribution_windows": ["1d_click", "7d_click", "1d_view"],
+            "total_rows": len(raw),
+            "data": raw,
+        }
+        meta_campaigns.write_cache(account_id, cache_key, result)
+        print(json.dumps(result, indent=2))
+        return
+
     raw = fetch_insights(args.account, token, args.days, args.level, args.breakdown, time_increment)
 
     result = {
