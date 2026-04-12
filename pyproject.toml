@@ -1,0 +1,31 @@
+[project]
+name = "claude-meta-ads"
+version = "1.0.0"
+description = "Meta Ads analysis plugin for Claude Code"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "arcbaslow", url = "https://github.com/arcbaslow"},
+]
+keywords = [
+    "meta-ads", "facebook-ads", "instagram-ads", "claude-code",
+    "campaign-analysis", "creative-fatigue", "pixel-tracking",
+]
+
+dependencies = [
+    "facebook-business>=19.0.0",
+    "fpdf2>=2.8.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/arcbaslow/claude-meta-ads"
+Repository = "https://github.com/arcbaslow/claude-meta-ads"
+
+[tool.pytest.ini_options]
+testpaths = ["scripts"]

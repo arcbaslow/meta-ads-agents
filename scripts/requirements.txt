@@ -1,3 +1,2 @@
 facebook-business>=19.0.0
 fpdf2>=2.8.1
-matplotlib>=3.8

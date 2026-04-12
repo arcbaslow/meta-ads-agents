@@ -27,6 +27,30 @@ class TestMetricAggregation(unittest.TestCase):
         self.assertEqual(result["total_clicks"], 98)
         self.assertAlmostEqual(result["avg_ctr"], 98 / 2200 * 100, places=2)
 
+    def test_aggregate_empty_list(self):
+        result = meta_insights.aggregate_metrics([])
+        self.assertEqual(result["total_spend"], 0)
+        self.assertEqual(result["total_impressions"], 0)
+        self.assertEqual(result["total_clicks"], 0)
+        self.assertEqual(result["avg_ctr"], 0)
+        self.assertEqual(result["avg_cpc"], 0)
+        self.assertEqual(result["avg_cpm"], 0)
+        self.assertEqual(result["days"], 0)
+
+    def test_aggregate_all_zeros(self):
+        daily_data = [{"spend": "0", "impressions": "0", "clicks": "0"}]
+        result = meta_insights.aggregate_metrics(daily_data)
+        self.assertEqual(result["avg_ctr"], 0)
+        self.assertEqual(result["avg_cpc"], 0)
+        self.assertEqual(result["avg_cpm"], 0)
+
+    def test_aggregate_missing_fields(self):
+        """Fields missing from rows should default to 0, not crash."""
+        daily_data = [{"date_start": "2026-03-01"}]
+        result = meta_insights.aggregate_metrics(daily_data)
+        self.assertEqual(result["total_spend"], 0)
+        self.assertEqual(result["total_impressions"], 0)
+
 
 class TestInsightsFields(unittest.TestCase):
     def test_metrics_include_entity_names(self):
