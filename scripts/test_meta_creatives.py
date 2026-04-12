@@ -43,6 +43,27 @@ class TestFatigueScore(unittest.TestCase):
         score = meta_creatives.fatigue_score(frequency=1.2, ctr_trend=-0.05)
         self.assertLessEqual(score, 0.3)
 
+    def test_fresh_creative_zero_inputs(self):
+        """Brand new creative with no frequency and no CTR change should be 0."""
+        score = meta_creatives.fatigue_score(frequency=0, ctr_trend=0)
+        self.assertEqual(score, 0.0)
+
+    def test_saturated_creative_maxes_at_one(self):
+        """Extreme values should cap the score at 1.0, not exceed it."""
+        score = meta_creatives.fatigue_score(frequency=100, ctr_trend=-1.0)
+        self.assertLessEqual(score, 1.0)
+        self.assertGreaterEqual(score, 0.9)
+
+    def test_improving_ctr_no_fatigue_contribution(self):
+        """Positive CTR trend (improving creative) should not add to fatigue."""
+        score = meta_creatives.fatigue_score(frequency=1.0, ctr_trend=0.3)
+        self.assertEqual(score, 0.0)
+
+    def test_high_frequency_but_stable_ctr(self):
+        """High frequency alone contributes 40% weight max."""
+        score = meta_creatives.fatigue_score(frequency=7.0, ctr_trend=0)
+        self.assertAlmostEqual(score, 0.4)  # freq component = 1.0, 1.0 * 0.4 = 0.4
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -94,6 +94,42 @@ class TestPDFGeneration(unittest.TestCase):
         self.assertTrue(os.path.exists(path))
         self.assertGreater(os.path.getsize(path), 100)
 
+class TestHTMLGeneration(unittest.TestCase):
+    def test_generate_html_contains_structure(self):
+        md = meta_report.generate_markdown(SAMPLE_DATA)
+        html = meta_report.generate_html(md, SAMPLE_DATA)
+        self.assertIn("<!DOCTYPE html>", html)
+        self.assertIn("<table>", html)
+        self.assertIn("Test Account", html)
+
+    def test_generate_html_contains_campaign_data(self):
+        md = meta_report.generate_markdown(SAMPLE_DATA)
+        html = meta_report.generate_html(md, SAMPLE_DATA)
+        self.assertIn("Campaign A", html)
+        self.assertIn("Campaign B", html)
+
+    def test_generate_html_contains_action_plan(self):
+        md = meta_report.generate_markdown(SAMPLE_DATA)
+        html = meta_report.generate_html(md, SAMPLE_DATA)
+        self.assertIn("Implement CAPI", html)
+
+    def test_generate_html_has_dark_theme_styles(self):
+        md = meta_report.generate_markdown(SAMPLE_DATA)
+        html = meta_report.generate_html(md, SAMPLE_DATA)
+        self.assertIn("--bg:", html)
+        self.assertIn("--accent:", html)
+
+    def test_generate_html_writes_to_file(self):
+        md = meta_report.generate_markdown(SAMPLE_DATA)
+        html = meta_report.generate_html(md, SAMPLE_DATA)
+        tmpdir = tempfile.mkdtemp()
+        path = os.path.join(tmpdir, "test.html")
+        meta_report.write_file(path, html)
+        self.assertTrue(os.path.exists(path))
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("<!DOCTYPE html>", content)
+
 
 class TestFileWriting(unittest.TestCase):
     def test_write_markdown_file(self):

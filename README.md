@@ -19,8 +19,14 @@ Install Python dependencies in a venv:
 
 ```bash
 cd claude-meta-ads
-python3 -m venv .venv
+python -m venv .venv
+
+# macOS/Linux:
 source .venv/bin/activate
+
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+
 pip install -r scripts/requirements.txt
 ```
 
@@ -72,9 +78,9 @@ claude-meta-ads/
 ## Running tests
 
 ```bash
-source .venv/bin/activate
+# From the scripts directory:
 cd scripts
-python3 -m pytest -v
+python -m pytest -v
 ```
 
 All tests use mocked API responses, no Meta credentials needed.
