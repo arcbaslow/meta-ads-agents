@@ -4,9 +4,14 @@
 import argparse
 import json
 import os
+import stat
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import webbrowser
+from datetime import datetime, timezone
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlencode, urlparse, parse_qs
 
@@ -24,10 +29,16 @@ def load_credentials():
 
 
 def save_credentials(creds):
-    """Save credentials to file, creating parent dirs if needed."""
+    """Save credentials to file, creating parent dirs if needed.
+
+    On Unix, restricts the file to owner-read/write only (0600).
+    """
     os.makedirs(os.path.dirname(CREDENTIALS_PATH), exist_ok=True)
     with open(CREDENTIALS_PATH, "w") as f:
         json.dump(creds, f, indent=2)
+    # Restrict to owner-only on Unix systems
+    if os.name != "nt":
+        os.chmod(CREDENTIALS_PATH, stat.S_IRUSR | stat.S_IWUSR)
 
 
 def validate_token_with_api(access_token):
@@ -56,14 +67,29 @@ def check_auth():
 
     result = validate_token_with_api(token)
     if result.get("is_valid"):
-        return {
+        response = {
             "status": "ok",
             "auth_method": creds.get("auth_method"),
             "ad_accounts": creds.get("ad_accounts", []),
             "token_expiry": creds.get("token_expiry"),
         }
+        # Add expiry warning if token has a known expiry date
+        expiry_str = creds.get("token_expiry")
+        if expiry_str:
+            try:
+                expiry = datetime.fromisoformat(expiry_str).replace(tzinfo=timezone.utc)
+                days_left = (expiry - datetime.now(timezone.utc)).days
+                response["expires_in_days"] = days_left
+                if days_left < 0:
+                    response["warning"] = "Token has expired. Re-authenticate with: meta_auth.py --oauth"
+                elif days_left < 7:
+                    response["warning"] = f"Token expires in {days_left} days. Re-authenticate soon."
+            except (ValueError, TypeError):
+                pass
+        return response
     else:
         return {"status": "error", "message": f"Token invalid: {result.get('error', 'unknown')}"}
+
 
 
 def list_ad_accounts(access_token):
@@ -86,10 +112,11 @@ def list_ad_accounts(access_token):
 
 
 def exchange_for_long_lived_token(app_id, app_secret, short_token):
-    """Exchange short-lived token for a long-lived one (60 days)."""
-    import urllib.request
-    import urllib.parse
+    """Exchange short-lived token for a long-lived one (60 days).
 
+    Raises:
+        RuntimeError: If the Meta API returns an HTTP error.
+    """
     params = urllib.parse.urlencode({
         "grant_type": "fb_exchange_token",
         "client_id": app_id,
@@ -97,8 +124,16 @@ def exchange_for_long_lived_token(app_id, app_secret, short_token):
         "fb_exchange_token": short_token,
     })
     url = f"https://graph.facebook.com/v21.0/oauth/access_token?{params}"
-    with urllib.request.urlopen(url) as resp:
-        data = json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(url) as resp:
+            data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        try:
+            error_body = json.loads(e.read().decode())
+            msg = error_body.get("error", {}).get("message", str(e))
+        except (json.JSONDecodeError, AttributeError):
+            msg = str(e)
+        raise RuntimeError(f"Token exchange failed: {msg}") from e
     return data["access_token"], data.get("expires_in", 5184000)
 
 
@@ -150,9 +185,6 @@ def run_oauth_flow(app_id, app_secret):
     code = OAuthCallbackHandler.auth_code
     server.server_close()
 
-    import urllib.request
-    import urllib.parse
-
     params = urllib.parse.urlencode({
         "client_id": app_id,
         "client_secret": app_secret,
@@ -160,8 +192,16 @@ def run_oauth_flow(app_id, app_secret):
         "code": code,
     })
     url = f"https://graph.facebook.com/v21.0/oauth/access_token?{params}"
-    with urllib.request.urlopen(url) as resp:
-        data = json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(url) as resp:
+            data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        try:
+            error_body = json.loads(e.read().decode())
+            msg = error_body.get("error", {}).get("message", str(e))
+        except (json.JSONDecodeError, AttributeError):
+            msg = str(e)
+        return {"status": "error", "message": f"OAuth code exchange failed: {msg}"}
     short_token = data["access_token"]
 
     long_token, expires_in = exchange_for_long_lived_token(app_id, app_secret, short_token)
@@ -213,7 +253,6 @@ def main():
     parser.add_argument("--app-id", help="Meta App ID")
     parser.add_argument("--app-secret", help="Meta App Secret")
     parser.add_argument("--access-token", help="Access token (for --configure)")
-    parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()
 

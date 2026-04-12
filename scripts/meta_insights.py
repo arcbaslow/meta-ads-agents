@@ -129,7 +129,6 @@ def main():
     parser.add_argument("--attribution", action="store_true",
                         help="Break down conversions by attribution window (1d click, 7d click, 1d view)")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
-    parser.add_argument("--json", action="store_true", default=True, help="Output as JSON")
 
     args = parser.parse_args()
     account_id = args.account

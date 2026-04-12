@@ -5,28 +5,25 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 import meta_campaigns
+import meta_utils
 
 
-class TestCacheLayer(unittest.TestCase):
+class TestCacheLayerBackwardCompat(unittest.TestCase):
+    """Cache functions are now in meta_utils; verify aliases still work."""
+
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        meta_campaigns.CACHE_DIR = self.tmpdir
+        self._orig = meta_utils.CACHE_DIR
+        meta_utils.CACHE_DIR = self.tmpdir
 
-    def test_cache_write_and_read(self):
+    def tearDown(self):
+        meta_utils.CACHE_DIR = self._orig
+
+    def test_cache_write_and_read_via_campaigns(self):
         data = {"campaigns": [{"id": "123", "name": "Test Campaign"}]}
         meta_campaigns.write_cache("act_111", "campaigns", data)
         loaded = meta_campaigns.read_cache("act_111", "campaigns", ttl_seconds=900)
         self.assertEqual(loaded["campaigns"][0]["id"], "123")
-
-    def test_cache_miss_when_expired(self):
-        data = {"campaigns": []}
-        meta_campaigns.write_cache("act_111", "campaigns", data)
-        loaded = meta_campaigns.read_cache("act_111", "campaigns", ttl_seconds=0)
-        self.assertIsNone(loaded)
-
-    def test_cache_miss_when_no_file(self):
-        loaded = meta_campaigns.read_cache("act_999", "campaigns", ttl_seconds=900)
-        self.assertIsNone(loaded)
 
 
 class TestOutputFormat(unittest.TestCase):
@@ -47,7 +44,9 @@ class TestOutputFormat(unittest.TestCase):
         self.assertEqual(len(result[0]["adsets"][0]["ads"]), 1)
 
 
-class TestRetryWrapper(unittest.TestCase):
+class TestRetryBackwardCompat(unittest.TestCase):
+    """Verify api_call_with_retry alias still works via meta_campaigns."""
+
     def test_succeeds_on_first_try(self):
         call_count = [0]
         def good_fn():
@@ -57,22 +56,26 @@ class TestRetryWrapper(unittest.TestCase):
         self.assertEqual(result, "ok")
         self.assertEqual(call_count[0], 1)
 
-    def test_retries_on_rate_limit(self):
+    def test_raises_non_retryable_immediately(self):
+        """Non-retryable errors should not be retried (new behavior)."""
+        call_count = [0]
+        def buggy_fn():
+            call_count[0] += 1
+            raise KeyError("bad key")
+        with self.assertRaises(KeyError):
+            meta_campaigns.api_call_with_retry(buggy_fn, max_retries=3, base_delay=0)
+        self.assertEqual(call_count[0], 1)
+
+    def test_retries_on_connection_error(self):
         call_count = [0]
         def flaky_fn():
             call_count[0] += 1
             if call_count[0] < 3:
-                raise Exception("too many calls")
+                raise ConnectionError("refused")
             return "ok"
         result = meta_campaigns.api_call_with_retry(flaky_fn, max_retries=3, base_delay=0)
         self.assertEqual(result, "ok")
         self.assertEqual(call_count[0], 3)
-
-    def test_raises_after_max_retries(self):
-        def always_fails():
-            raise Exception("rate limited")
-        with self.assertRaises(Exception):
-            meta_campaigns.api_call_with_retry(always_fails, max_retries=2, base_delay=0)
 
 
 if __name__ == "__main__":
