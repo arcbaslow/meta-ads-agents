@@ -5,3 +5,25 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Credentials (never commit tokens)
+.env
+meta-ads-credentials.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+claude-meta-ads-cache/
+
+# Reports (generated output)
+meta-ads-report-*.pdf
+meta-ads-report-*.html
+meta-ads-report-*.md

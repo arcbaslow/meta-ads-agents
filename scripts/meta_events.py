@@ -3,7 +3,10 @@
 
 import argparse
 import json
+import logging
 import sys
+
+logger = logging.getLogger("meta_ads")
 
 import meta_auth
 import meta_campaigns
@@ -159,9 +162,8 @@ def fetch_pixel_health(account_id, access_token):
                             "event_name": entry.get("event"),
                             "source": "server",
                         })
-        except Exception:
-            # pixel stats may require extra permissions or hit rate limits
-            pass
+        except Exception as e:
+            logger.warning("CAPI detection failed for pixel %s: %s", pixel_dict.get("id"), e)
 
         result = detect_capi_status(pixel_dict, server_events)
         pixel_data.append(result)

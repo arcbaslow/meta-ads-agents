@@ -130,6 +130,76 @@ class TestHTMLGeneration(unittest.TestCase):
             content = f.read()
         self.assertIn("<!DOCTYPE html>", content)
 
+class TestCSVExport(unittest.TestCase):
+    def test_csv_creates_campaign_file(self):
+        tmpdir = tempfile.mkdtemp()
+        files = meta_report.generate_csv(SAMPLE_DATA, tmpdir)
+        self.assertIn("campaigns", files)
+        self.assertTrue(os.path.exists(files["campaigns"]))
+
+    def test_csv_campaign_file_has_headers(self):
+        tmpdir = tempfile.mkdtemp()
+        meta_report.generate_csv(SAMPLE_DATA, tmpdir)
+        with open(os.path.join(tmpdir, "campaigns.csv")) as f:
+            header = f.readline()
+        self.assertIn("name", header)
+        self.assertIn("spend", header)
+
+    def test_csv_creates_creatives_and_placements(self):
+        tmpdir = tempfile.mkdtemp()
+        files = meta_report.generate_csv(SAMPLE_DATA, tmpdir)
+        self.assertIn("creatives", files)
+        self.assertIn("placements", files)
+
+    def test_csv_empty_data(self):
+        tmpdir = tempfile.mkdtemp()
+        files = meta_report.generate_csv({"account_id": "act_123"}, tmpdir)
+        self.assertEqual(files, {})
+
+
+PREVIOUS_DATA = {
+    "account_id": "act_123",
+    "date_range": "2026-02-05 to 2026-03-07",
+    "summary": {
+        "spend": 2800.0,
+        "purchases": 9000,
+        "revenue": 350000.0,
+        "roas": 125.0,
+        "cpa": 0.31,
+        "reach": 750000,
+    },
+    "campaigns": [
+        {"name": "Campaign A", "spend": 900, "purchases": 4000, "revenue": 180000,
+         "roas": 200.0, "cpa": 0.23, "ctr": 0.35, "cpm": 1.10},
+        {"name": "Campaign C", "spend": 300, "purchases": 1000, "revenue": 40000,
+         "roas": 133.0, "cpa": 0.30, "ctr": 0.40, "cpm": 1.00},
+    ],
+}
+
+
+class TestComparison(unittest.TestCase):
+    def test_comparison_has_metric_deltas(self):
+        result = meta_report.generate_comparison(SAMPLE_DATA, PREVIOUS_DATA)
+        self.assertIn("metrics", result)
+        spend = result["metrics"]["spend"]
+        self.assertAlmostEqual(spend["change"], 3104.23 - 2800.0, places=1)
+        self.assertIn("change_pct", spend)
+
+    def test_comparison_detects_new_campaign(self):
+        result = meta_report.generate_comparison(SAMPLE_DATA, PREVIOUS_DATA)
+        campaigns = {c["name"]: c for c in result["campaigns"]}
+        self.assertEqual(campaigns["Campaign B"]["status"], "new")
+
+    def test_comparison_detects_removed_campaign(self):
+        result = meta_report.generate_comparison(SAMPLE_DATA, PREVIOUS_DATA)
+        campaigns = {c["name"]: c for c in result["campaigns"]}
+        self.assertEqual(campaigns["Campaign C"]["status"], "removed")
+
+    def test_comparison_active_campaign(self):
+        result = meta_report.generate_comparison(SAMPLE_DATA, PREVIOUS_DATA)
+        campaigns = {c["name"]: c for c in result["campaigns"]}
+        self.assertEqual(campaigns["Campaign A"]["status"], "active")
+
 
 class TestFileWriting(unittest.TestCase):
     def test_write_markdown_file(self):

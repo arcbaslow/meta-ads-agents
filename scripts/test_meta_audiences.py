@@ -32,5 +32,36 @@ class TestTargetingSummary(unittest.TestCase):
         self.assertEqual(summary["countries"], ["US"])
 
 
+class TestOverlapAnalysis(unittest.TestCase):
+    def test_detects_shared_interests(self):
+        adsets = [
+            {"adset_id": "1", "adset_name": "A", "targeting_summary": {"interests": ["Fitness", "Yoga", "Running"]}},
+            {"adset_id": "2", "adset_name": "B", "targeting_summary": {"interests": ["Yoga", "Meditation"]}},
+        ]
+        overlaps = meta_audiences.analyze_overlap(adsets)
+        self.assertEqual(len(overlaps), 1)
+        self.assertIn("Yoga", overlaps[0]["shared_interests"])
+        self.assertGreater(overlaps[0]["overlap_pct"], 0)
+
+    def test_no_overlap(self):
+        adsets = [
+            {"adset_id": "1", "adset_name": "A", "targeting_summary": {"interests": ["Fitness"]}},
+            {"adset_id": "2", "adset_name": "B", "targeting_summary": {"interests": ["Cooking"]}},
+        ]
+        overlaps = meta_audiences.analyze_overlap(adsets)
+        self.assertEqual(len(overlaps), 0)
+
+    def test_empty_input(self):
+        self.assertEqual(meta_audiences.analyze_overlap([]), [])
+
+    def test_no_interests_key(self):
+        adsets = [
+            {"adset_id": "1", "adset_name": "A", "targeting_summary": {}},
+            {"adset_id": "2", "adset_name": "B", "targeting_summary": {}},
+        ]
+        overlaps = meta_audiences.analyze_overlap(adsets)
+        self.assertEqual(len(overlaps), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
