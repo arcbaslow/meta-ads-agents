@@ -162,7 +162,6 @@ def main():
     parser.add_argument("--with-metrics", action="store_true", help="Include performance metrics")
     parser.add_argument("--days", type=int, default=30, help="Days to look back for metrics")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
-    parser.add_argument("--json", action="store_true", default=True)
 
     args = parser.parse_args()
 

@@ -77,6 +77,46 @@ class TestTokenValidation(unittest.TestCase):
         result = meta_auth.check_auth()
         self.assertEqual(result["status"], "error")
 
+    @patch("meta_auth.validate_token_with_api")
+    def test_check_token_near_expiry_warning(self, mock_validate):
+        """Token expiring within 7 days should include a warning."""
+        mock_validate.return_value = {"is_valid": True, "expires_at": 0, "scopes": []}
+        from datetime import datetime, timedelta, timezone
+        near_expiry = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%S")
+        creds = {
+            "auth_method": "oauth",
+            "app_id": "123",
+            "app_secret": "secret",
+            "access_token": "almost_expired_token",
+            "token_expiry": near_expiry,
+            "ad_accounts": [],
+        }
+        meta_auth.save_credentials(creds)
+        result = meta_auth.check_auth()
+        self.assertEqual(result["status"], "ok")
+        self.assertIn("expires_in_days", result)
+        self.assertIn("warning", result)
+
+    @patch("meta_auth.validate_token_with_api")
+    def test_check_token_far_expiry_no_warning(self, mock_validate):
+        """Token with >7 days left should NOT include a warning."""
+        mock_validate.return_value = {"is_valid": True, "expires_at": 0, "scopes": []}
+        from datetime import datetime, timedelta, timezone
+        far_expiry = (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
+        creds = {
+            "auth_method": "oauth",
+            "app_id": "123",
+            "app_secret": "secret",
+            "access_token": "good_token",
+            "token_expiry": far_expiry,
+            "ad_accounts": [],
+        }
+        meta_auth.save_credentials(creds)
+        result = meta_auth.check_auth()
+        self.assertEqual(result["status"], "ok")
+        self.assertIn("expires_in_days", result)
+        self.assertNotIn("warning", result)
+
 
 if __name__ == "__main__":
     unittest.main()

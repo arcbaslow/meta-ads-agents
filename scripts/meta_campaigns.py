@@ -8,68 +8,40 @@ import sys
 import time
 
 import meta_auth
+import meta_utils
 
-CACHE_DIR = "/tmp/claude-meta-ads"
-CACHE_TTL = 900  # 15 minutes
+# Backward-compatible aliases — other scripts import these from meta_campaigns
+to_plain = meta_utils.to_plain
+api_call_with_retry = meta_utils.api_call_with_retry
+read_cache = meta_utils.read_cache
+write_cache = meta_utils.write_cache
+CACHE_DIR = meta_utils.CACHE_DIR
+CACHE_TTL = meta_utils.CACHE_TTL
 
-
-def to_plain(obj):
-    """Recursively convert Meta SDK objects to JSON-serializable dicts/lists."""
-    if isinstance(obj, dict):
-        return {k: to_plain(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [to_plain(v) for v in obj]
-    if hasattr(obj, 'export_all_data'):
-        return to_plain(obj.export_all_data())
-    if hasattr(obj, '_data'):
-        return to_plain(dict(obj._data))
-    return obj
-
-
-def api_call_with_retry(fn, max_retries=3, base_delay=2):
-    """Call fn() with exponential backoff on failure.
-
-    Retries on any exception (typically Meta API rate limit error 80004).
-    Delays: base_delay, base_delay*2, base_delay*4, ...
-    """
-    for attempt in range(max_retries + 1):
-        try:
-            return fn()
-        except Exception:
-            if attempt == max_retries:
-                raise
-            delay = base_delay * (2 ** attempt)
-            if delay > 0:
-                time.sleep(delay)
-
-
-def read_cache(account_id, key, ttl_seconds=CACHE_TTL):
-    """Read cached JSON data if it exists and hasn't expired."""
-    path = os.path.join(CACHE_DIR, f"{account_id}_{key}.json")
-    if not os.path.exists(path):
-        return None
-    age = time.time() - os.path.getmtime(path)
-    if age > ttl_seconds:
-        return None
-    with open(path, "r") as f:
-        return json.load(f)
-
-
-def write_cache(account_id, key, data):
-    """Write JSON data to cache file."""
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    path = os.path.join(CACHE_DIR, f"{account_id}_{key}.json")
-    with open(path, "w") as f:
-        json.dump(data, f)
-
-
-def fetch_campaigns(account_id, access_token, active_only=False):
-    """Fetch all campaigns for an ad account."""
+def _init_account(account_id, access_token):
+    """Initialize a Meta API AdAccount object."""
     from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
 
     api = FacebookAdsApi.init(access_token=access_token)
-    account = AdAccount(account_id, api=api)
+    return AdAccount(account_id, api=api)
+
+
+def _paginated_fetch(cursor, page_size=500):
+    """Iterate through a Meta SDK Cursor and collect all pages as plain dicts.
+
+    The SDK Cursor auto-paginates, but we process in chunks to avoid
+    loading everything into memory at once for large accounts.
+    """
+    results = []
+    for obj in cursor:
+        results.append(to_plain(dict(obj)))
+    return results
+
+
+def fetch_campaigns(account_id, access_token, active_only=False):
+    """Fetch all campaigns for an ad account with automatic pagination."""
+    account = _init_account(account_id, access_token)
 
     fields = [
         "id", "name", "status", "objective", "buying_type",
@@ -77,21 +49,17 @@ def fetch_campaigns(account_id, access_token, active_only=False):
         "start_time", "stop_time", "created_time", "updated_time",
         "bid_strategy",
     ]
-    params = {}
+    params = {"limit": 500}
     if active_only:
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
-    campaigns = list(account.get_campaigns(fields=fields, params=params))
-    return [to_plain(dict(c)) for c in campaigns]
+    cursor = account.get_campaigns(fields=fields, params=params)
+    return _paginated_fetch(cursor)
 
 
 def fetch_adsets(account_id, access_token, active_only=False):
-    """Fetch all ad sets for an ad account."""
-    from facebook_business.api import FacebookAdsApi
-    from facebook_business.adobjects.adaccount import AdAccount
-
-    api = FacebookAdsApi.init(access_token=access_token)
-    account = AdAccount(account_id, api=api)
+    """Fetch all ad sets for an ad account with automatic pagination."""
+    account = _init_account(account_id, access_token)
 
     fields = [
         "id", "name", "campaign_id", "status", "targeting",
@@ -99,32 +67,28 @@ def fetch_adsets(account_id, access_token, active_only=False):
         "billing_event", "optimization_goal", "start_time", "end_time",
         "attribution_spec",
     ]
-    params = {}
+    params = {"limit": 500}
     if active_only:
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
-    adsets = list(account.get_ad_sets(fields=fields, params=params))
-    return [to_plain(dict(a)) for a in adsets]
+    cursor = account.get_ad_sets(fields=fields, params=params)
+    return _paginated_fetch(cursor)
 
 
 def fetch_ads(account_id, access_token, active_only=False):
-    """Fetch all ads for an ad account."""
-    from facebook_business.api import FacebookAdsApi
-    from facebook_business.adobjects.adaccount import AdAccount
-
-    api = FacebookAdsApi.init(access_token=access_token)
-    account = AdAccount(account_id, api=api)
+    """Fetch all ads for an ad account with automatic pagination."""
+    account = _init_account(account_id, access_token)
 
     fields = [
         "id", "name", "adset_id", "status", "creative",
         "created_time", "updated_time",
     ]
-    params = {}
+    params = {"limit": 500}
     if active_only:
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
-    ads = list(account.get_ads(fields=fields, params=params))
-    return [to_plain(dict(a)) for a in ads]
+    cursor = account.get_ads(fields=fields, params=params)
+    return _paginated_fetch(cursor)
 
 
 def build_hierarchy(campaigns, adsets, ads):
@@ -161,7 +125,6 @@ def main():
     parser.add_argument("--active-only", action="store_true", help="Only fetch active entities")
     parser.add_argument("--fetch-all", action="store_true", help="Fetch full hierarchy (campaigns + ad sets + ads)")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache, fetch fresh data")
-    parser.add_argument("--json", action="store_true", default=True, help="Output as JSON")
 
     args = parser.parse_args()
 
@@ -174,8 +137,9 @@ def main():
     token = creds["access_token"]
     account_id = args.account
 
-    # Check cache
-    cache_key = "hierarchy" if args.fetch_all else "campaigns"
+    # Check cache (include active_only in key to avoid collisions)
+    active_suffix = "_active" if args.active_only else ""
+    cache_key = ("hierarchy" if args.fetch_all else "campaigns") + active_suffix
     if not args.no_cache:
         cached = read_cache(account_id, cache_key)
         if cached:

@@ -176,7 +176,6 @@ def main():
     parser.add_argument("--health-check", action="store_true", help="Quick pixel health status")
     parser.add_argument("--funnel", action="store_true", help="Build conversion funnel")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
-    parser.add_argument("--json", action="store_true", default=True)
 
     args = parser.parse_args()
 

@@ -100,7 +100,6 @@ def main():
     parser.add_argument("--account", required=True, help="Ad account ID")
     parser.add_argument("--overlap", action="store_true", help="Show audience overlap between ad sets")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
-    parser.add_argument("--json", action="store_true", default=True)
 
     args = parser.parse_args()
 
