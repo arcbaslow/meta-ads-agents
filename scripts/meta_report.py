@@ -398,24 +398,124 @@ def write_file(path, content):
         f.write(content)
 
 
+def generate_csv(report_data, output_dir):
+    """Export report data as CSV files (one per section).
+
+    Returns dict of section name -> file path.
+    """
+    import csv
+
+    os.makedirs(output_dir, exist_ok=True)
+    files = {}
+
+    # Campaigns
+    campaigns = report_data.get("campaigns", [])
+    if campaigns:
+        path = os.path.join(output_dir, "campaigns.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["name", "spend", "purchases", "revenue", "roas", "cpa", "ctr", "cpm"])
+            writer.writeheader()
+            writer.writerows(campaigns)
+        files["campaigns"] = os.path.abspath(path)
+
+    # Creatives
+    creatives = report_data.get("creatives", [])
+    if creatives:
+        path = os.path.join(output_dir, "creatives.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["name", "format", "spend", "ctr", "cpa", "frequency", "fatigue"])
+            writer.writeheader()
+            writer.writerows(creatives)
+        files["creatives"] = os.path.abspath(path)
+
+    # Placements
+    placements = report_data.get("placements", [])
+    if placements:
+        path = os.path.join(output_dir, "placements.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["name", "spend", "purchases", "cpa", "roas"])
+            writer.writeheader()
+            writer.writerows(placements)
+        files["placements"] = os.path.abspath(path)
+
+    return files
+
+
+def _delta(current, previous, key, as_pct=False):
+    """Calculate change between two values."""
+    cur = current.get(key, 0)
+    prev = previous.get(key, 0)
+    diff = cur - prev
+    if as_pct and prev:
+        return {"current": cur, "previous": prev, "change": diff, "change_pct": round(diff / prev * 100, 1)}
+    return {"current": cur, "previous": prev, "change": diff}
+
+
+def generate_comparison(current_data, previous_data):
+    """Generate a period-over-period comparison summary."""
+    cur_s = current_data.get("summary", {})
+    prev_s = previous_data.get("summary", {})
+
+    comparison = {
+        "current_period": current_data.get("date_range", ""),
+        "previous_period": previous_data.get("date_range", ""),
+        "metrics": {
+            "spend": _delta(cur_s, prev_s, "spend", as_pct=True),
+            "purchases": _delta(cur_s, prev_s, "purchases", as_pct=True),
+            "revenue": _delta(cur_s, prev_s, "revenue", as_pct=True),
+            "roas": _delta(cur_s, prev_s, "roas", as_pct=True),
+            "cpa": _delta(cur_s, prev_s, "cpa", as_pct=True),
+            "reach": _delta(cur_s, prev_s, "reach", as_pct=True),
+        },
+    }
+
+    # Campaign-level comparison
+    cur_campaigns = {c["name"]: c for c in current_data.get("campaigns", [])}
+    prev_campaigns = {c["name"]: c for c in previous_data.get("campaigns", [])}
+    all_names = sorted(set(list(cur_campaigns.keys()) + list(prev_campaigns.keys())))
+
+    campaign_changes = []
+    for name in all_names:
+        cur = cur_campaigns.get(name, {})
+        prev = prev_campaigns.get(name, {})
+        campaign_changes.append({
+            "name": name,
+            "spend": _delta(cur, prev, "spend", as_pct=True),
+            "roas": _delta(cur, prev, "roas", as_pct=True),
+            "status": "new" if name not in prev_campaigns else ("removed" if name not in cur_campaigns else "active"),
+        })
+    comparison["campaigns"] = campaign_changes
+
+    return comparison
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate Meta Ads report")
     parser.add_argument("--input", required=True, help="Path to JSON report data file")
-    parser.add_argument("--format", choices=["pdf", "md", "html", "both"], default="both",
+    parser.add_argument("--format", choices=["pdf", "md", "html", "csv", "both"], default="both",
                         help="Output format (default: both = md + pdf)")
     parser.add_argument("--output", help="Output file path (auto-generated if not set)")
+    parser.add_argument("--compare", help="Path to previous period JSON for comparison")
 
     args = parser.parse_args()
 
     with open(args.input, "r") as f:
         report_data = json.load(f)
 
-    md = generate_markdown(report_data)
     account_id = report_data.get("account_id", "unknown")
     today = date.today().isoformat()
     base = args.output or f"meta-ads-report-{account_id}-{today}"
 
     outputs = {}
+
+    # If comparing, merge comparison data into report
+    if args.compare:
+        with open(args.compare, "r") as f:
+            previous_data = json.load(f)
+        comparison = generate_comparison(report_data, previous_data)
+        report_data["comparison"] = comparison
+
+    md = generate_markdown(report_data)
 
     if args.format in ("md", "both"):
         md_path = f"{base}.md" if not base.endswith(".md") else base
@@ -433,7 +533,14 @@ def main():
         write_file(html_path, html)
         outputs["html"] = os.path.abspath(html_path)
 
+    if args.format == "csv":
+        csv_dir = f"{base}-csv"
+        csv_files = generate_csv(report_data, csv_dir)
+        outputs["csv"] = csv_files
+
     result = {"status": "ok", "format": args.format, "outputs": outputs}
+    if args.compare:
+        result["comparison"] = report_data["comparison"]
     print(json.dumps(result, indent=2))
 
 

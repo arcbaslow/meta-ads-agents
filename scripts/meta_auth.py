@@ -176,10 +176,14 @@ def run_oauth_flow(app_id, app_secret):
     webbrowser.open(auth_url)
 
     server = HTTPServer(("localhost", 8477), OAuthCallbackHandler)
-    server.timeout = 120
+    server.timeout = 10  # per-request timeout, checked in loop
+    deadline = time.time() + 120
     print("Waiting for authorization (timeout: 2 minutes)...")
 
     while OAuthCallbackHandler.auth_code is None:
+        if time.time() > deadline:
+            server.server_close()
+            return {"status": "error", "message": "OAuth timed out after 2 minutes. Try again."}
         server.handle_request()
 
     code = OAuthCallbackHandler.auth_code

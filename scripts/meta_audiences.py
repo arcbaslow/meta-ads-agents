@@ -95,6 +95,33 @@ def fetch_adset_targeting(account_id, access_token):
     return result
 
 
+def analyze_overlap(adset_targeting):
+    """Detect targeting overlap between ad sets.
+
+    Compares interest, custom audience, and geo targeting across ad sets
+    to flag potential audience fragmentation.
+    """
+    overlaps = []
+    for i, a in enumerate(adset_targeting):
+        for j, b in enumerate(adset_targeting):
+            if j <= i:
+                continue
+            a_interests = set(a.get("targeting_summary", {}).get("interests", []))
+            b_interests = set(b.get("targeting_summary", {}).get("interests", []))
+            shared = a_interests & b_interests
+            if shared:
+                total = a_interests | b_interests
+                pct = round(len(shared) / len(total) * 100, 1) if total else 0
+                overlaps.append({
+                    "adset_a": {"id": a["adset_id"], "name": a.get("adset_name")},
+                    "adset_b": {"id": b["adset_id"], "name": b.get("adset_name")},
+                    "shared_interests": sorted(shared),
+                    "overlap_pct": pct,
+                })
+    overlaps.sort(key=lambda x: x["overlap_pct"], reverse=True)
+    return overlaps
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch Meta Ads audience data")
     parser.add_argument("--account", required=True, help="Ad account ID")
@@ -109,7 +136,7 @@ def main():
         sys.exit(1)
 
     token = creds["access_token"]
-    cache_key = "audiences"
+    cache_key = "audiences_overlap" if args.overlap else "audiences"
 
     if not args.no_cache:
         cached = meta_campaigns.read_cache(args.account, cache_key)
@@ -132,6 +159,13 @@ def main():
         "custom_audiences": custom_audiences,
         "adset_targeting": adset_targeting,
     }
+
+    if args.overlap:
+        overlaps = analyze_overlap(adset_targeting)
+        result["overlap_analysis"] = {
+            "total_overlaps": len(overlaps),
+            "overlaps": overlaps,
+        }
 
     meta_campaigns.write_cache(args.account, cache_key, result)
     print(json.dumps(result, indent=2))
