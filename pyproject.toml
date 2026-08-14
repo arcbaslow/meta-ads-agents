@@ -1,6 +1,6 @@
 [project]
 name = "meta-ads-agents"
-version = "1.0.0"
+version = "1.0.1"
 description = "Multi-agent toolkit for Meta (Facebook/Instagram) Ads. Campaign performance, creative fatigue, audience breakdowns, Pixel/CAPI event health, budget pacing, markdown and PDF reports."
 readme = "README.md"
 license = { text = "MIT" }
