@@ -490,6 +490,12 @@ def generate_comparison(current_data, previous_data):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Meta Ads report")
+    # Accepted as a no-op: every adapter already prints JSON to stdout.
+    # All seven agent definitions and the audit skill pass --json, matching
+    # the gsc/ga4/gads convention, and without this each one exits 2 on its
+    # first command.
+    parser.add_argument("--json", action="store_true",
+                        help="No-op; output is always JSON. Accepted for consistency.")
     parser.add_argument("--input", required=True, help="Path to JSON report data file")
     parser.add_argument("--format", choices=["pdf", "md", "html", "csv", "both"], default="both",
                         help="Output format (default: both = md + pdf)")

@@ -180,6 +180,12 @@ def main():
     parser.add_argument("--health-check", action="store_true", help="Quick pixel health status")
     parser.add_argument("--funnel", action="store_true", help="Build conversion funnel")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
+    # Accepted as a no-op: every adapter already prints JSON to stdout.
+    # All seven agent definitions and the audit skill pass --json, matching
+    # the gsc/ga4/gads convention, and without this each one exits 2 on its
+    # first command.
+    parser.add_argument("--json", action="store_true",
+                        help="No-op; output is always JSON. Accepted for consistency.")
 
     args = parser.parse_args()
 
