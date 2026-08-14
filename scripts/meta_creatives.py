@@ -67,8 +67,8 @@ def fatigue_score(frequency, ctr_trend):
 
 def fetch_creatives(account_id, access_token):
     """Fetch all ad creatives for an account."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -86,9 +86,10 @@ def fetch_creatives(account_id, access_token):
 
 def fetch_creatives_with_metrics(account_id, access_token, days=30):
     """Fetch creatives joined with per-ad performance metrics."""
-    from facebook_business.api import FacebookAdsApi
-    from facebook_business.adobjects.adaccount import AdAccount
     from datetime import date, timedelta
+
+    from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -162,6 +163,12 @@ def main():
     parser.add_argument("--with-metrics", action="store_true", help="Include performance metrics")
     parser.add_argument("--days", type=int, default=30, help="Days to look back for metrics")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
+    # Accepted as a no-op: every adapter already prints JSON to stdout.
+    # All seven agent definitions and the audit skill pass --json, matching
+    # the gsc/ga4/gads convention, and without this each one exits 2 on its
+    # first command.
+    parser.add_argument("--json", action="store_true",
+                        help="No-op; output is always JSON. Accepted for consistency.")
 
     args = parser.parse_args()
 

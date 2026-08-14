@@ -79,12 +79,21 @@ def api_call_with_retry(fn, max_retries=3, base_delay=2):
 
 
 def read_cache(account_id, key, ttl_seconds=CACHE_TTL):
-    """Read cached JSON data if it exists and hasn't expired."""
+    """Read cached JSON data if it exists and hasn't expired.
+
+    A ttl_seconds of zero or less always misses. That is how callers force
+    a fresh fetch, so it has to be honoured before any mtime arithmetic.
+    """
+    if ttl_seconds <= 0:
+        return None
     path = os.path.join(CACHE_DIR, f"{account_id}_{key}.json")
     if not os.path.exists(path):
         return None
-    age = time.time() - os.path.getmtime(path)
-    if age > ttl_seconds:
+    # Clamped: the filesystem can report an mtime a hair ahead of the wall
+    # clock, which yields a negative age and makes an expired entry look
+    # fresh. Seen on Windows under load.
+    age = max(0.0, time.time() - os.path.getmtime(path))
+    if age >= ttl_seconds:
         return None
     try:
         with open(path, "r") as f:
