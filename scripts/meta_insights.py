@@ -3,7 +3,6 @@
 
 import argparse
 import json
-import os
 import sys
 from datetime import date, timedelta
 
@@ -89,8 +88,8 @@ def build_attribution_params(days=30, level="campaign"):
 def fetch_insights(account_id, access_token, days=30, level="campaign",
                    breakdown=None, time_increment=None):
     """Fetch insights from Meta Marketing API."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -159,8 +158,8 @@ def main():
                 print(json.dumps(cached, indent=2))
                 return
 
-        from facebook_business.api import FacebookAdsApi
         from facebook_business.adobjects.adaccount import AdAccount
+        from facebook_business.api import FacebookAdsApi
         api = FacebookAdsApi.init(access_token=token)
         account = AdAccount(account_id, api=api)
 

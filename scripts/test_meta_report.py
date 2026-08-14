@@ -4,7 +4,6 @@ import unittest
 
 import meta_report
 
-
 SAMPLE_DATA = {
     "account_id": "act_123",
     "account_name": "Test Account",

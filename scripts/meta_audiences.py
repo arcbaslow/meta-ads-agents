@@ -53,8 +53,8 @@ def summarize_targeting(targeting):
 
 def fetch_custom_audiences(account_id, access_token):
     """Fetch custom audiences for an account."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -72,8 +72,8 @@ def fetch_custom_audiences(account_id, access_token):
 
 def fetch_adset_targeting(account_id, access_token):
     """Fetch targeting specs from all ad sets."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)

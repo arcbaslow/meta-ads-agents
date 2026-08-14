@@ -6,10 +6,10 @@ import json
 import logging
 import sys
 
-logger = logging.getLogger("meta_ads")
-
 import meta_auth
 import meta_campaigns
+
+logger = logging.getLogger("meta_ads")
 
 STANDARD_EVENTS = {
     "PageView", "ViewContent", "Search", "AddToCart", "AddToWishlist",
@@ -90,9 +90,10 @@ def build_funnel(event_counts):
 
 def fetch_pixel_events(account_id, access_token, days=7):
     """Fetch pixel event data for an ad account."""
-    from facebook_business.api import FacebookAdsApi
-    from facebook_business.adobjects.adaccount import AdAccount
     from datetime import date, timedelta
+
+    from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -128,8 +129,8 @@ def fetch_pixel_events(account_id, access_token, days=7):
 
 def fetch_pixel_health(account_id, access_token):
     """Check pixel configuration and health status, including CAPI detection."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -146,8 +147,9 @@ def fetch_pixel_health(account_id, access_token):
         # Try to detect CAPI by querying pixel stats for server events
         server_events = []
         try:
-            from facebook_business.adobjects.adspixel import AdsPixel
             from datetime import date, timedelta
+
+            from facebook_business.adobjects.adspixel import AdsPixel
             px = AdsPixel(pixel_dict["id"], api=api)
             stats = list(px.get_stats(params={
                 "aggregation": "event",

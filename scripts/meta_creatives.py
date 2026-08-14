@@ -67,8 +67,8 @@ def fatigue_score(frequency, ctr_trend):
 
 def fetch_creatives(account_id, access_token):
     """Fetch all ad creatives for an account."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -86,9 +86,10 @@ def fetch_creatives(account_id, access_token):
 
 def fetch_creatives_with_metrics(account_id, access_token, days=30):
     """Fetch creatives joined with per-ad performance metrics."""
-    from facebook_business.api import FacebookAdsApi
-    from facebook_business.adobjects.adaccount import AdAccount
     from datetime import date, timedelta
+
+    from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)

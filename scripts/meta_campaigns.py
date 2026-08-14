@@ -3,9 +3,7 @@
 
 import argparse
 import json
-import os
 import sys
-import time
 
 import meta_auth
 import meta_utils
@@ -20,8 +18,8 @@ CACHE_TTL = meta_utils.CACHE_TTL
 
 def _init_account(account_id, access_token):
     """Initialize a Meta API AdAccount object."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     return AdAccount(account_id, api=api)
