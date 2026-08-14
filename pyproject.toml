@@ -1,16 +1,27 @@
 [project]
-name = "claude-meta-ads"
+name = "meta-ads-agents"
 version = "1.0.0"
-description = "Meta Ads analysis plugin for Claude Code"
+description = "Multi-agent toolkit for Meta (Facebook/Instagram) Ads. Campaign performance, creative fatigue, audience breakdowns, Pixel/CAPI event health, budget pacing, markdown and PDF reports."
 readme = "README.md"
-license = {text = "MIT"}
+license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [
-    {name = "arcbaslow", url = "https://github.com/arcbaslow"},
+    { name = "arcbaslow" },
 ]
 keywords = [
     "meta-ads", "facebook-ads", "instagram-ads", "claude-code",
     "campaign-analysis", "creative-fatigue", "pixel-tracking",
+    "capi", "marketing-api", "multi-agent",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial",
 ]
 
 dependencies = [
@@ -20,12 +31,29 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
+    "pytest>=7.4,<9",
+    "pytest-cov>=4.1,<8",
+    "ruff>=0.1,<1",
 ]
 
 [project.urls]
-Homepage = "https://github.com/arcbaslow/claude-meta-ads"
-Repository = "https://github.com/arcbaslow/claude-meta-ads"
+Homepage = "https://github.com/arcbaslow/meta-ads-agents"
+Repository = "https://github.com/arcbaslow/meta-ads-agents"
+Changelog = "https://github.com/arcbaslow/meta-ads-agents/blob/master/CHANGELOG.md"
+Issues = "https://github.com/arcbaslow/meta-ads-agents/issues"
+
+[tool.setuptools]
+py-modules = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Pinned explicitly. Ruff's implicit default rule set changes between
+# releases, which turns an unrelated ruff upgrade into a red CI run.
+select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.pytest.ini_options]
 testpaths = ["scripts"]
+python_files = ["test_*.py"]

@@ -1,9 +1,7 @@
 """Tests for meta_utils shared utilities."""
 
-import json
 import os
 import tempfile
-import time
 import unittest
 
 import meta_utils

@@ -1,8 +1,7 @@
-import json
 import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import meta_auth
 
@@ -116,6 +115,41 @@ class TestTokenValidation(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertIn("expires_in_days", result)
         self.assertNotIn("warning", result)
+
+
+class TestOAuthCallbackState(unittest.TestCase):
+    """The callback listener must reject a code that doesn't carry our state."""
+
+    def _dispatch(self, path, expected_state):
+        handler = meta_auth.OAuthCallbackHandler.__new__(meta_auth.OAuthCallbackHandler)
+        handler.path = path
+        handler.wfile = MagicMock()
+        handler.send_response = MagicMock()
+        handler.send_header = MagicMock()
+        handler.end_headers = MagicMock()
+        meta_auth.OAuthCallbackHandler.auth_code = None
+        meta_auth.OAuthCallbackHandler.expected_state = expected_state
+        handler.do_GET()
+        return handler
+
+    def tearDown(self):
+        meta_auth.OAuthCallbackHandler.auth_code = None
+        meta_auth.OAuthCallbackHandler.expected_state = None
+
+    def test_matching_state_accepts_code(self):
+        handler = self._dispatch("/callback?code=good_code&state=s3cr3t", "s3cr3t")
+        self.assertEqual(meta_auth.OAuthCallbackHandler.auth_code, "good_code")
+        handler.send_response.assert_called_once_with(200)
+
+    def test_mismatched_state_rejects_code(self):
+        handler = self._dispatch("/callback?code=evil_code&state=wrong", "s3cr3t")
+        self.assertIsNone(meta_auth.OAuthCallbackHandler.auth_code)
+        handler.send_response.assert_called_once_with(400)
+
+    def test_missing_state_rejects_code(self):
+        handler = self._dispatch("/callback?code=evil_code", "s3cr3t")
+        self.assertIsNone(meta_auth.OAuthCallbackHandler.auth_code)
+        handler.send_response.assert_called_once_with(400)
 
 
 if __name__ == "__main__":

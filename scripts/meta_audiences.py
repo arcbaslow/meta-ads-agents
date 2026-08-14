@@ -53,8 +53,8 @@ def summarize_targeting(targeting):
 
 def fetch_custom_audiences(account_id, access_token):
     """Fetch custom audiences for an account."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -72,8 +72,8 @@ def fetch_custom_audiences(account_id, access_token):
 
 def fetch_adset_targeting(account_id, access_token):
     """Fetch targeting specs from all ad sets."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     account = AdAccount(account_id, api=api)
@@ -127,6 +127,12 @@ def main():
     parser.add_argument("--account", required=True, help="Ad account ID")
     parser.add_argument("--overlap", action="store_true", help="Show audience overlap between ad sets")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
+    # Accepted as a no-op: every adapter already prints JSON to stdout.
+    # All seven agent definitions and the audit skill pass --json, matching
+    # the gsc/ga4/gads convention, and without this each one exits 2 on its
+    # first command.
+    parser.add_argument("--json", action="store_true",
+                        help="No-op; output is always JSON. Accepted for consistency.")
 
     args = parser.parse_args()
 

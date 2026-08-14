@@ -1,0 +1,95 @@
+name: Bug report
+description: Something in the toolkit doesn't work the way the docs say it does.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear, factual description. No screenshots needed unless they show a UI bug.
+      placeholder: "`python scripts/meta_insights.py --account act_123 --days 30` returned ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: "I expected ..."
+    validations:
+      required: true
+
+  - type: input
+    id: command
+    attributes:
+      label: Exact command
+      description: Redact the account ID if you'd rather not share it. Keep the `act_` prefix.
+      placeholder: "python scripts/meta_creatives.py --account act_XXXX --with-metrics"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output
+      description: >
+        Full stderr / stack trace if there was one. Scrub access tokens and
+        app secrets before pasting.
+      render: shell
+
+  - type: dropdown
+    id: auth-path
+    attributes:
+      label: Auth path
+      options:
+        - OAuth flow (--oauth)
+        - manual token (--configure)
+        - not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which adapter / agent?
+      options:
+        - meta-ads-audit (full audit driver)
+        - meta-ads-performance (insights / ROAS / CPA / CTR)
+        - meta-ads-creative (fatigue scoring)
+        - meta-ads-audience (demographic / placement breakdowns)
+        - meta-ads-events (Pixel / CAPI health)
+        - meta-ads-budget (pacing and saturation)
+        - meta-ads-report (markdown / HTML / PDF)
+        - auth (meta_auth.py)
+        - other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: api-error-code
+    attributes:
+      label: Meta API error code
+      description: If the failure came back from Meta, the numeric code and subcode help a lot.
+      placeholder: "code 17, subcode 2446079"
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.11.7"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "macOS 14.5 / Ubuntu 22.04 / Windows 11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Account size, custom configuration, recent changes, suspected cause.

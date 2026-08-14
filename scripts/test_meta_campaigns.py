@@ -1,8 +1,5 @@
-import json
-import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
 
 import meta_campaigns
 import meta_utils

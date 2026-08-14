@@ -1,17 +1,17 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "claude-meta-ads",
+  "name": "meta-ads-agents",
   "owner": {
     "name": "arcbaslow"
   },
   "metadata": {
-    "description": "Meta Ads analysis tools for Claude Code"
+    "description": "Meta Ads toolkit: campaign performance, creative fatigue, audience breakdowns, Pixel/CAPI event health, budget pacing, markdown and PDF reports."
   },
   "plugins": [
     {
-      "name": "claude-meta-ads",
+      "name": "meta-ads-agents",
       "source": "./",
-      "description": "Multi-agent Meta Ads analysis plugin. 8 sub-skills covering campaign performance, creative fatigue, audience targeting, Pixel/CAPI events, budget optimization, attribution, full audits, and PDF/HTML reporting."
+      "description": "Multi-agent Meta Ads plugin. Skills covering campaign performance, creative fatigue, audience targeting, Pixel/CAPI events, budget optimization, attribution, full audits, and PDF/HTML reporting."
     }
   ]
 }

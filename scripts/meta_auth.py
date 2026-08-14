@@ -2,18 +2,19 @@
 """Meta Ads authentication: OAuth flow, manual token config, and token validation."""
 
 import argparse
+import hmac
 import json
 import os
+import secrets
 import stat
-import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
 from datetime import datetime, timezone
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlencode, urlparse, parse_qs
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlencode, urlparse
 
 CREDENTIALS_PATH = os.path.expanduser("~/.claude/meta-ads-credentials.json")
 REDIRECT_URI = "http://localhost:8477/callback"
@@ -44,8 +45,8 @@ def save_credentials(creds):
 def validate_token_with_api(access_token):
     """Validate token against Meta's debug_token endpoint."""
     try:
-        from facebook_business.api import FacebookAdsApi
         from facebook_business.adobjects.user import User
+        from facebook_business.api import FacebookAdsApi
 
         api = FacebookAdsApi.init(access_token=access_token)
         me = User(fbid="me", api=api)
@@ -94,8 +95,8 @@ def check_auth():
 
 def list_ad_accounts(access_token):
     """Fetch all accessible ad accounts for the authenticated user."""
-    from facebook_business.api import FacebookAdsApi
     from facebook_business.adobjects.user import User
+    from facebook_business.api import FacebookAdsApi
 
     api = FacebookAdsApi.init(access_token=access_token)
     me = User(fbid="me", api=api)
@@ -141,11 +142,24 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
     """HTTP handler to capture OAuth redirect."""
 
     auth_code = None
+    expected_state = None
 
     def do_GET(self):
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
         if "code" in params:
+            # Reject a callback that doesn't carry the state we generated.
+            # Without this, any local page can drive this listener into
+            # exchanging an attacker-supplied code while it is open.
+            got_state = params.get("state", [""])[0]
+            if not hmac.compare_digest(got_state, OAuthCallbackHandler.expected_state or ""):
+                self.send_response(400)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(b"<html><body><h2>Error: state mismatch</h2>"
+                                 b"<p>This callback did not originate from the login "
+                                 b"that started here. Nothing was saved.</p></body></html>")
+                return
             OAuthCallbackHandler.auth_code = params["code"][0]
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
@@ -164,14 +178,19 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
 
 def run_oauth_flow(app_id, app_secret):
     """Run the full OAuth flow: open browser, capture callback, exchange token."""
+    state = secrets.token_urlsafe(32)
+    OAuthCallbackHandler.auth_code = None
+    OAuthCallbackHandler.expected_state = state
+
     auth_url = "https://www.facebook.com/v21.0/dialog/oauth?" + urlencode({
         "client_id": app_id,
         "redirect_uri": REDIRECT_URI,
         "scope": ",".join(SCOPES),
         "response_type": "code",
+        "state": state,
     })
 
-    print(f"Opening browser for Facebook Login...")
+    print("Opening browser for Facebook Login...")
     print(f"If browser doesn't open, visit: {auth_url}")
     webbrowser.open(auth_url)
 
