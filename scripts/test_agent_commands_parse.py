@@ -10,15 +10,18 @@ This walks the markdown, pulls out every `python scripts/<x>.py ...` line,
 and asserts the adapter's own parser accepts it. It is the cheapest possible
 guard against documentation drifting away from argparse.
 
-Two details that matter, both learned the hard way:
+Three details that matter, all learned the hard way:
 
 - Do not append `--help`. argparse fires the help action and exits 0 the
   moment it sees it, before the unrecognized-argument check runs at the end
   of parse_args. A `--help`-based version of this test passes even with the
   flag removed, which is worse than no test.
-- Run with HOME and USERPROFILE redirected. Without that the subprocess
-  resolves the real `~/.claude/meta-ads-credentials.json` and a passing
-  parse would go on to hit the live Meta API.
+- Do not let the adapter actually run. `meta_auth.py --oauth` opens a browser
+  and blocks on a callback listener for two minutes; other commands would hit
+  the Meta API. The runner below patches `parse_args` to exit as soon as it
+  returns, so argparse does its validation and nothing else executes.
+- Redirect HOME and USERPROFILE anyway, as a second line of defence against
+  a command resolving the real credentials file.
 """
 
 import re
@@ -44,6 +47,21 @@ _PLACEHOLDER = {
 
 # argparse exits 2 on a usage error: unknown flag, bad choice, missing required.
 _ARGPARSE_USAGE_ERROR = 2
+
+# Runs a script far enough to parse its arguments, then stops. Patching
+# parse_args rather than calling the adapter means no browser, no network and
+# no credential read, while argparse still raises SystemExit(2) on a bad line.
+_PARSE_ONLY = """
+import argparse, runpy, sys
+_orig = argparse.ArgumentParser.parse_args
+def _patched(self, args=None, namespace=None):
+    _orig(self, args, namespace)
+    sys.exit(0)
+argparse.ArgumentParser.parse_args = _patched
+script = sys.argv.pop(1)
+runpy.run_path(script, run_name="__main__")
+sys.exit(0)
+"""
 
 
 def _documented_commands():
@@ -86,7 +104,7 @@ def test_documented_command_parses(where, script, tail, tmp_path):
     }
 
     proc = subprocess.run(
-        [sys.executable, str(SCRIPTS / script), *args],
+        [sys.executable, "-c", _PARSE_ONLY, str(SCRIPTS / script), *args],
         capture_output=True,
         text=True,
         cwd=str(SCRIPTS),
@@ -94,8 +112,6 @@ def test_documented_command_parses(where, script, tail, tmp_path):
         timeout=60,
     )
 
-    # The adapter will still fail afterwards - no credentials under the fake
-    # home - and that is fine. We only care that argparse accepted the line.
     assert proc.returncode != _ARGPARSE_USAGE_ERROR, (
         f"{where} documents a command its adapter rejects:\n"
         f"  python scripts/{script} {tail}\n"
