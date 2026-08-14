@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/arcbaslow/meta-ads-agents/actions/workflows/tests.yml/badge.svg)](https://github.com/arcbaslow/meta-ads-agents/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.0.1-blue.svg)](CHANGELOG.md)
 
 A multi-agent toolkit for Meta (Facebook / Instagram) Ads. Talks to the
 Meta Marketing API for campaign, ad set, ad, creative, audience, and
