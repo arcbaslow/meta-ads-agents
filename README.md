@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="meta-ads-agents - Performance, fatigue and pacing" width="880">
+</p>
+
 # meta-ads-agents
 
 [![tests](https://github.com/arcbaslow/meta-ads-agents/actions/workflows/tests.yml/badge.svg)](https://github.com/arcbaslow/meta-ads-agents/actions/workflows/tests.yml)
