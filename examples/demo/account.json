@@ -1,0 +1,70 @@
+{
+  "account_id": "act_123456789",
+  "account_name": "Demo Store (synthetic data)",
+  "date_range": "2026-08-01 to 2026-08-30",
+  "summary": {
+    "spend": 4200,
+    "purchases": 140,
+    "revenue": 16800,
+    "roas": 4,
+    "cpa": 30,
+    "reach": 95000
+  },
+  "campaigns": [
+    {
+      "name": "Prospecting / demo",
+      "spend": 3000,
+      "purchases": 90,
+      "revenue": 10800,
+      "roas": 3.6,
+      "cpa": 33.33,
+      "ctr": 1.8,
+      "cpm": 8.4
+    },
+    {
+      "name": "Retargeting / demo",
+      "spend": 1200,
+      "purchases": 50,
+      "revenue": 6000,
+      "roas": 5,
+      "cpa": 24,
+      "ctr": 2.6,
+      "cpm": 11.2
+    }
+  ],
+  "creatives": [
+    {
+      "name": "Product story / demo",
+      "format": "Video",
+      "spend": 1800,
+      "ctr": 2.1,
+      "cpa": 28.13,
+      "frequency": 2.4,
+      "fatigue": "Low"
+    },
+    {
+      "name": "Offer card / demo",
+      "format": "Image",
+      "spend": 1200,
+      "ctr": 1.2,
+      "cpa": 46.15,
+      "frequency": 5.2,
+      "fatigue": "Review"
+    }
+  ],
+  "tracking": {
+    "pixel_status": "Active (synthetic)",
+    "has_capi": true,
+    "funnel_health": "Review purchase deduplication"
+  },
+  "actions": [
+    {
+      "level": "high",
+      "text": "Inspect event IDs in the purchase deduplication setup."
+    },
+    {
+      "level": "medium",
+      "text": "Review the high-frequency offer creative before replacing it."
+    }
+  ]
+}
