@@ -1,6 +1,6 @@
 [project]
 name = "meta-ads-agents"
-version = "1.0.1"
+version = "1.0.2"
 description = "Multi-agent toolkit for Meta (Facebook/Instagram) Ads. Campaign performance, creative fatigue, audience breakdowns, Pixel/CAPI event health, budget pacing, markdown and PDF reports."
 readme = "README.md"
 license = { text = "MIT" }
@@ -43,7 +43,11 @@ Changelog = "https://github.com/arcbaslow/meta-ads-agents/blob/master/CHANGELOG.
 Issues = "https://github.com/arcbaslow/meta-ads-agents/issues"
 
 [tool.setuptools]
-py-modules = []
+package-dir = { "" = "scripts" }
+py-modules = [
+    "meta_auth", "meta_campaigns", "meta_insights", "meta_creatives",
+    "meta_audiences", "meta_events", "meta_report", "meta_utils",
+]
 
 [tool.ruff]
 line-length = 100

@@ -1,6 +1,6 @@
 {
   "name": "meta-ads-agents",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Multi-agent Meta Ads toolkit for Claude Code. Campaign performance analysis, creative fatigue detection, audience insights, Pixel/CAPI event health, budget pacing, and attribution across multiple ad accounts.",
   "author": {
     "name": "arcbaslow",

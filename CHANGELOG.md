@@ -5,6 +5,19 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning is [semantic](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-09-08
+
+### Added
+
+- Distinct SVG banner and project icon, linked CI/release badges, and a screenshot of real output generated from synthetic fixtures.
+- Reproducible offline examples, release notes, maintainer release instructions and a verification record.
+
+### Changed
+
+- Included the eight adapter modules in built distributions; previous wheels contained only metadata.
+- Reorganized README around installation, first run, example output, supported capabilities and the actual CI checks.
+- Corrected installation and capability claims, with explicit distinctions between agent workflows, direct CLI operations and optional integrations.
+
 ## [1.0.1] - 2026-08-14
 ### Fixed
 

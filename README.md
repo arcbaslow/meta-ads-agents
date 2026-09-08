@@ -1,255 +1,157 @@
 <p align="center">
-  <img src="assets/banner.png" alt="meta-ads-agents - Performance, fatigue and pacing" width="880">
+  <img src="assets/banner.svg" alt="Meta Ads Agents — Campaign performance, creative fatigue and event health." width="100%">
 </p>
 
-# meta-ads-agents
+# Meta Ads Agents
 
-[![tests](https://github.com/arcbaslow/meta-ads-agents/actions/workflows/tests.yml/badge.svg)](https://github.com/arcbaslow/meta-ads-agents/actions/workflows/tests.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-1.0.1-blue.svg)](CHANGELOG.md)
+Campaign performance, creative fatigue and event health.
 
-A multi-agent toolkit for Meta (Facebook / Instagram) Ads. Talks to the
-Meta Marketing API for campaign, ad set, ad, creative, audience, and
-Pixel/CAPI event data, then runs specialist agents over the result —
-one for performance, one for creative fatigue, one for audiences, one
-for event health, one for budget pacing.
+[![Tests](https://github.com/arcbaslow/meta-ads-agents/actions/workflows/tests.yml/badge.svg)](https://github.com/arcbaslow/meta-ads-agents/actions/workflows/tests.yml)
+[![Release](https://img.shields.io/github/v/release/arcbaslow/meta-ads-agents?color=7c3aed&label=release)](https://github.com/arcbaslow/meta-ads-agents/releases)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-7c3aed?logo=python&logoColor=white)](#installation)
+[![MIT license](https://img.shields.io/badge/license-MIT-475569)](LICENSE)
 
-Designed to work with agentic runtimes side by side:
+[Quick start](#quick-start) · [Example output](#example-output) · [Tests](#tests) · [Releases](#releases) · [Contributing](CONTRIBUTING.md)
 
-- **Claude Code** — full skill and subagent integration via `skills/` and `agents/`
-- **Codex / other AGENTS.md runtimes** — driven by `AGENTS.md` and the universal Python CLI
+A read-only Python toolkit for Facebook and Instagram advertising analysis. Retrieve Marketing API data, inspect campaign and creative performance, and combine specialist findings into reports through the `/meta-ads` agent workflow.
 
-The Python adapters under `scripts/` are the source of truth and work
-the same everywhere. Read-only by default.
+## What you can do
 
-## What it does
+| Area | Included capabilities |
+| --- | --- |
+| Performance | Spend, purchases, revenue, ROAS, CPA, CTR and frequency at campaign, ad-set and ad level |
+| Creative | Creative metadata, metrics and fatigue heuristics |
+| Audiences | Age, gender, geography, device and placement breakdowns |
+| Measurement | Pixel/CAPI event health and conversion-funnel checks |
+| Budget | Agent analysis of utilization, pacing and bid-strategy fit |
+| Reports | Markdown, HTML, PDF, CSV tables and period comparisons |
 
-- **Campaign performance**: spend, ROAS, CPA, CTR, frequency and
-  impression trends across campaign, ad set, and ad level.
-- **Creative fatigue**: scores each creative on frequency, CTR decay,
-  and recency so you know which ads are burning budget on an audience
-  that has already seen them.
-- **Audience breakdowns**: performance split by age, gender, placement,
-  device, and country.
-- **Event health**: Pixel and Conversions API event coverage,
-  deduplication signals, and conversion-funnel mapping.
-- **Budget pacing**: underspend, budget saturation, and bid-strategy
-  problems.
-- **Full audit**: one command that fans the specialist agents out in
-  parallel and merges the findings into a single report.
-- **Reports**: markdown, HTML, or PDF export.
+The adapters retrieve data; specialist agents interpret it. The complete audit is an agent skill, not a standalone `meta_audit.py` command. Account mutation is not implemented.
 
-## Requirements
+## Installation
 
-- Python 3.10 or newer
-- A Meta App with `ads_read` and `ads_management` permissions
-- Access to the ad accounts you want to analyze
+Requires **Python 3.10+**, a Meta app and access to the ad account. See [docs/SETUP.md](docs/SETUP.md) for app setup and permissions.
 
-The full app-setup walkthrough is in [docs/SETUP.md](docs/SETUP.md).
-
-## Install
-
-From inside the project directory.
-
-### Recommended: `uv`
-
-```
-uv venv
-uv pip install -r scripts/requirements.txt
-uv run python scripts/meta_auth.py --check
-```
-
-[`uv`](https://github.com/astral-sh/uv) is a single-binary Python installer
-and runner. One install of `uv` replaces the venv + pip dance and is
-faster on cold-start.
-
-### Optional extras
-
-- `pip install -e ".[dev]"` — adds pytest + ruff for contributors.
-
-### Plain venv (works everywhere)
-
-```
+```bash
+git clone https://github.com/arcbaslow/meta-ads-agents.git
+cd meta-ads-agents
 python -m venv .venv
-
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-
-pip install -r scripts/requirements.txt
 ```
 
-## Authenticate
+Activate with `source .venv/bin/activate` on macOS/Linux or `.venv\Scripts\Activate.ps1` in Windows PowerShell, then:
 
-Two paths. OAuth is the default; a manually pasted long-lived token is
-the fallback for environments where the browser callback can't reach
-`localhost:8477`.
-
-```
-# OAuth: opens a browser, captures the callback, exchanges for a
-# long-lived (60-day) token
-python scripts/meta_auth.py --oauth --app-id <id> --app-secret <secret>
-
-# Manual: paste a token you already have
-python scripts/meta_auth.py --configure --app-id <id> --app-secret <secret> --access-token <token>
+```bash
+python -m pip install -e ".[dev]"
 ```
 
-Then verify and list what you can reach:
+Run the adapters from the cloned repository. The project is distributed as an agent toolkit; the source tree includes the scripts, reference material and skill definitions needed for that workflow.
 
-```
+## Quick start
+
+Configure credentials using the OAuth browser flow:
+
+```bash
+python scripts/meta_auth.py --oauth --app-id YOUR_APP_ID --app-secret YOUR_APP_SECRET
 python scripts/meta_auth.py --check
 python scripts/meta_auth.py --accounts
 ```
 
-Credentials are written to `~/.claude/meta-ads-credentials.json`
-(mode `0600` on POSIX). Requested scopes: `ads_read`, `ads_management`,
-`read_insights`, `business_management`.
+The callback listens on `localhost:8477`. For environments where that flow is unavailable, use the manual configuration path documented in [setup](docs/SETUP.md). Credentials are stored locally in `~/.claude/meta-ads-credentials.json`; never commit that file.
 
-## Use it
+Replace the example account ID with one returned by `--accounts`:
 
-### Claude Code
-
-After authentication, slash commands work directly:
-
-```
-/meta-ads audit act_123456789
-/meta-ads performance act_123456789
-/meta-ads creative act_123456789
-```
-
-The full list lives in `skills/meta-ads/SKILL.md`.
-
-### Plain Python
-
-Every feature is exposed as a Python CLI under `scripts/`. The runtimes
-above are conveniences — anything they can do, you can do manually.
-
-```
+```bash
 python scripts/meta_insights.py --account act_123456789 --days 30
-python scripts/meta_insights.py --account act_123456789 --level adset --breakdown age
 python scripts/meta_creatives.py --account act_123456789 --with-metrics
 python scripts/meta_events.py --account act_123456789 --health-check
 ```
 
-Every adapter prints JSON to stdout. Pass `--no-cache` to bypass the
-15-minute response cache.
+Both `123456789` and `act_123456789` are accepted and normalized to `act_123456789`. Data adapters print JSON to stdout.
 
-## Commands
+## Example output
 
-```
-/meta-ads audit <account-id>         full audit, agents in parallel
-/meta-ads performance <account-id>   spend, ROAS, CPA, CTR trends
-/meta-ads creative <account-id>      creative fatigue detection
-/meta-ads audience <account-id>      demographic and placement breakdown
-/meta-ads events <account-id>        Pixel / CAPI health check
-/meta-ads budget <account-id>        utilization and scaling opportunities
-/meta-ads report <account-id>        PDF / HTML export
-/meta-ads accounts                   list accessible ad accounts
-/meta-ads auth                       set up or re-check authentication
+![Meta Ads report generated from the bundled synthetic account fixture](assets/screenshot.png)
+
+This screenshot shows the actual Markdown report rendered for documentation, with **synthetic campaign data**. Reproduce it without a Meta account:
+
+```bash
+python scripts/meta_report.py --input examples/demo/account.json --format md --output report.md
+python scripts/meta_report.py --input examples/demo/account.json --format html --output report.html
 ```
 
-Default lookback is 30 days for everything except `events`, which uses
-7. Override with `--days N`.
+Read the [generated report](examples/demo/report.md) or inspect the [report input](examples/demo/account.json). The report input is an assembled report object, not the raw response from `meta_insights.py`.
 
-## Account ID format
+## Agent workflow
 
-Meta ad account IDs are prefixed with `act_`. The scripts accept either
-form:
+With the repository's [plugin](.claude-plugin/plugin.json) and [skills](skills/) loaded, the [router](skills/meta-ads/SKILL.md) provides:
 
-- `123456789`      → normalised to `act_123456789`
-- `act_123456789`  → used as-is
-
-## How it works
-
-The toolkit has three layers.
-
-1. **Python adapters** (`scripts/`) call the Marketing API, cache
-   responses, and return structured JSON. One module per domain:
-   `meta_auth`, `meta_campaigns`, `meta_insights`, `meta_creatives`,
-   `meta_audiences`, `meta_events`, `meta_report`.
-2. **Agents** (`agents/`) are markdown specialist definitions the
-   runtime spawns as subagents. Each reads the relevant adapter output
-   and produces analysis for its domain.
-3. **Skills** (`skills/`) provide the `/meta-ads ...` routing surface
-   and, for audits, fan out to all agents in parallel and merge the
-   results.
-
-## Caching and rate limits
-
-Adapter responses are cached as JSON under the OS temp directory
-(`claude-meta-ads/`) with a 15-minute TTL, keyed by account and query.
-Repeated analysis inside that window costs no API quota.
-
-Retryable Meta error codes (17, 4, 32, 80001, 80003–80006 — all rate
-limit families) plus transient connection errors are retried with
-exponential backoff. Non-retryable errors surface immediately rather
-than being swallowed.
-
-Rate-limit tiers and the backoff strategy are documented in
-`skills/meta-ads/references/meta-api-limits.md`.
-
-## Project structure
-
-```
-meta-ads-agents/
-  .claude-plugin/        plugin manifest and marketplace config
-  agents/                7 specialist agent definitions
-  docs/                  setup guide
-  hooks/                 pre/post-tool guards
-  scripts/               Python adapters and tests (the universal CLI)
-  skills/
-    meta-ads/            top-level router skill + reference docs
-    meta-ads-audit/      parallel audit orchestrator
-    meta-ads-performance/
-    meta-ads-creative/
-    meta-ads-audience/
-    meta-ads-events/
-    meta-ads-budget/
-    meta-ads-report/
-  AGENTS.md              instructions for AGENTS.md-standard runtimes
-  CLAUDE.md              Claude Code instructions
+```text
+/meta-ads audit act_123456789
+/meta-ads performance act_123456789
+/meta-ads creative act_123456789
+/meta-ads audience act_123456789
+/meta-ads events act_123456789
+/meta-ads budget act_123456789
 ```
 
-## Benchmarks
+The audit skill distributes work across the specialists in [agents/](agents/), then combines their findings. Other agent runtimes can follow [AGENTS.md](AGENTS.md) and run the underlying adapters directly.
 
-`skills/meta-ads/references/benchmarks.md` ships industry-average CTR,
-CPA, and ROAS by vertical. `campaign-objectives.md` maps ODAX
-objectives to their valid optimization events — useful for catching
-campaigns optimizing for the wrong thing.
+## Reports and comparisons
+
+```bash
+python scripts/meta_insights.py --account act_123456789 --level adset --breakdown age --days 30
+python scripts/meta_report.py --input examples/demo/account.json --format pdf --output report.pdf
+python scripts/meta_report.py --input examples/demo/account.json --format csv --output csv-output
+python scripts/meta_report.py --input current.json --compare previous.json --format md --output comparison.md
+```
+
+Campaign queries typically use 30 days; event checks use 7. Inspect the adapter's `--help` for overrides. Benchmark reference files in [skills/meta-ads/references/](skills/meta-ads/references/) support interpretation; they are bundled reference material, not continuously updated market data.
+
+### Caching and API behavior
+
+Responses use a 15-minute JSON cache under the OS temporary directory, in `claude-meta-ads/`. Pass `--no-cache` to refresh a supported adapter query. Retryable rate-limit errors and transient connections use exponential backoff. Field availability still depends on the account, permissions and API version. Fatigue and event-health signals are heuristics to investigate, not proof of a cause.
 
 ## Tests
 
+```bash
+python -m ruff check scripts/
+python -m pytest scripts/ -q
 ```
-pytest scripts/ -q
-```
 
-Every adapter is mocked. The suite never hits the Meta API and needs no
-credentials. CI runs it on Python 3.10 / 3.11 / 3.12 / 3.13.
+The fixture-based suite requires no Meta account and covers auth and OAuth state validation, cache behavior, campaign and audience queries, creative scoring, event health, report formats, agent-command parsing and version consistency. CI runs Python 3.10–3.13. See the [release verification](docs/VERIFICATION.md).
 
-## Status
+## Repository map
 
-v1.0.0 — all read paths shipped and unit-tested. No write paths yet;
-when they land they will follow the same confirm-before-mutate pattern
-as [google-ads-agents](https://github.com/arcbaslow/google-ads-agents).
+| Path | Purpose |
+| --- | --- |
+| [scripts/](scripts/) | Marketing API adapters, reports and tests |
+| [agents/](agents/) | Performance, creative, audience, events and other specialists |
+| [skills/](skills/) | `/meta-ads` commands and analysis reference material |
+| [examples/demo/](examples/demo/) | Synthetic report input and generated Markdown |
+| [docs/](docs/) | App setup, releases and verification |
 
-Meta versions the Marketing API roughly twice a year. Auth endpoints
-currently target `v21.0`. Field and edge names are verified against the
-official docs on each bump, not from memory.
+## Releases
+
+**[v1.0.2](https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.0.2)** — see the [release notes](docs/RELEASE_NOTES.md) for this release and the [changelog](CHANGELOG.md) for project history.
+
+GitHub Releases include downloadable artifacts and checksums. Package-registry publication is a separate, opt-in workflow; a GitHub release does not imply that the same version is available on PyPI or npm. Maintainers can follow the [release guide](docs/RELEASING.md).
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md), run the checks above, and include a minimal reproduction for bugs. Report vulnerabilities through [SECURITY.md](SECURITY.md).
+
+## Related tools
+
+| Project | Use it for |
+| --- | --- |
+| [Google Ads Agents](https://github.com/arcbaslow/google-ads-agents) | Paid media audits, tracking checks and reviewed changes. |
+| [Google Analytics Agent](https://github.com/arcbaslow/google-analytics-agent) | GA4 data quality, funnels and property management. |
+| [Search Console Agent](https://github.com/arcbaslow/google-search-console-agent) | Search performance, indexing and page experience. |
+| [GTM Diff](https://github.com/arcbaslow/gtm-diff) | Review the changes in your Google Tag Manager exports. |
+| [Figma Taxonomy Gen](https://github.com/arcbaslow/figma-taxonomy-gen) | Turn interactive designs into a reviewable tracking plan. |
+
+Maintained by [Good Labs](https://goodlabs.kz) — measurement implementation, tracking plans and analytics audits.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
-
-## Related
-
-Part of a set of marketing-measurement agent toolkits:
-
-- [google-ads-agents](https://github.com/arcbaslow/google-ads-agents)
-- [google-analytics-agent](https://github.com/arcbaslow/google-analytics-agent)
-- [google-search-console-agent](https://github.com/arcbaslow/google-search-console-agent)
-- [gtm-diff](https://github.com/arcbaslow/gtm-diff)
-- [figma-taxonomy-gen](https://github.com/arcbaslow/figma-taxonomy-gen)
-
-Built and maintained by [Good Labs](https://goodlabs.kz).
+[MIT](LICENSE) © Dilshat Rakhimov. This is an independent project; it is not an official product of the platform vendors.
