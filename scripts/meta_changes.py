@@ -11,7 +11,7 @@ shift, and it changes nothing in the account.
 import argparse
 import json
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import meta_auth
 import meta_campaigns
@@ -36,6 +36,20 @@ def parse_extra_data(raw):
         return raw
 
 
+def event_day(event_time):
+    """The UTC date of a log entry as YYYY-MM-DD, or None if it cannot be read.
+
+    The API returns an ISO 8601 string. A Unix timestamp is accepted too.
+    """
+    text = str(event_time or "")
+    if text.isdigit():
+        return datetime.fromtimestamp(int(text), tz=timezone.utc).date().isoformat()
+    try:
+        return date.fromisoformat(text[:10]).isoformat()
+    except ValueError:
+        return None
+
+
 def group_changes(activities):
     """Merge the log entries for one object on one day into a single change.
 
@@ -43,12 +57,15 @@ def group_changes(activities):
     would repeat the same before and after numbers.
     """
     groups = {}
-    for entry in activities:
+    # Sorted first, so that the name a group takes and the order of its
+    # events do not depend on the order the API returned the entries in.
+    for entry in sorted(activities, key=lambda e: json.dumps(e, sort_keys=True, default=str)):
         object_id = entry.get("object_id")
-        event_time = entry.get("event_time") or ""
-        if not object_id or len(event_time) < 10:
+        day = event_day(entry.get("event_time"))
+        if not object_id or not day:
             continue
-        key = (event_time[:10], str(object_id))
+        event_time = str(entry["event_time"])
+        key = (day, str(object_id))
         group = groups.setdefault(key, {
             "date": key[0],
             "object_id": key[1],
@@ -86,7 +103,9 @@ def window_metrics(rows, first, last, action_type=None):
     days = (last - first).days + 1
     spend = impressions = clicks = results = 0.0
     for row in rows:
-        day = date.fromisoformat(row["date_start"])
+        if not row.get("date_start"):
+            continue
+        day = date.fromisoformat(row["date_start"][:10])
         if not first <= day <= last:
             continue
         spend += float(row.get("spend", 0))
@@ -157,6 +176,9 @@ def correlate(activities, rows, level, days, window, threshold, action_type=None
     """Build the change report from fetched data. Pure: no API calls."""
     today = today or date.today()
     data_until = today - timedelta(days=1)
+    # Float sums depend on the order of their terms, so the rows are put in
+    # a fixed order before anything is added up.
+    rows = sorted(rows, key=lambda r: json.dumps(r, sort_keys=True, default=str))
     series, levels = index_rows(rows)
 
     changes, account_events, skipped = [], [], []

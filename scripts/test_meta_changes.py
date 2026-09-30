@@ -84,6 +84,29 @@ def test_entries_without_an_object_or_time_are_ignored():
     assert meta_changes.group_changes([{"event_type": "x"}, {"object_id": "a1"}]) == []
 
 
+def test_unreadable_event_time_is_skipped_not_fatal():
+    groups = meta_changes.group_changes([
+        {"object_id": "a1", "event_time": "sometime last week", "event_type": "x"},
+        event("a1", 5),
+    ])
+    assert [g["date"] for g in groups] == [day(5)]
+
+
+def test_unix_timestamp_event_time_is_read_as_a_utc_date():
+    assert meta_changes.event_day(1790000000) == "2026-09-21"
+    assert meta_changes.event_day("1790000000") == "2026-09-21"
+    assert meta_changes.event_day("2026-09-21T23:59:59+0000") == "2026-09-21"
+    assert meta_changes.event_day(None) is None
+
+
+def test_group_name_does_not_depend_on_entry_order():
+    renamed = [event("a1", 5, "update_ad_set_name", hour=9, object_name="Old name"),
+               event("a1", 5, "update_ad_set_budget", hour=11, object_name="New name")]
+    forward = meta_changes.group_changes(renamed)
+    backward = meta_changes.group_changes(renamed[::-1])
+    assert forward == backward
+
+
 # --- before and after --------------------------------------------------------
 
 def test_change_day_is_in_neither_window():
