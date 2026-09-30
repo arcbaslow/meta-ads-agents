@@ -353,6 +353,10 @@ def diagnose(account, campaigns, adsets, insights, days, thresholds, today=None)
     today = today or date.today()
     window = date_window(days, today)
     currency = account.get("currency")
+    # A fixed order, so that float sums and the findings do not depend on
+    # the order the API returned the entities in.
+    adsets = sorted(adsets, key=lambda a: a["id"])
+    campaigns = sorted(campaigns, key=lambda c: c["id"])
     campaign_map = {c["id"]: c for c in campaigns}
     rows_by_adset = {row["adset_id"]: row for row in insights}
     references = reference_cpas(adsets, rows_by_adset)

@@ -115,7 +115,7 @@ def score_fatigue(daily_rows, total_rows, days, min_impressions=1000, today=None
     since, until, second_half_start = fatigue_window(days, today)
     totals = {row["ad_id"]: row for row in total_rows}
     by_ad = {}
-    for row in daily_rows:
+    for row in sorted(daily_rows, key=lambda r: (r["ad_id"], r["date_start"])):
         by_ad.setdefault(row["ad_id"], []).append(row)
 
     ads, not_scored = [], []
