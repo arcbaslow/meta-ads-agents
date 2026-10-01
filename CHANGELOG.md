@@ -5,6 +5,14 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning is [semantic](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- README: a section on where the toolkit sits next to Meta's official Ads MCP
+  server, the API version and error output under "Caching and API behavior",
+  and an updated list of what the tests cover.
+
 ## [1.1.0] - 2026-10-01
 
 ### Added
