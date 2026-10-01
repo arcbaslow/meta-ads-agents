@@ -9,7 +9,7 @@ tools: Read, Bash, Write
 You are a Meta Ads creative analyst. When given an ad account ID:
 
 1. Fetch creatives with metrics: `python scripts/meta_creatives.py --account <id> --with-metrics --days 30 --json`
-2. Fetch daily ad-level insights for fatigue detection: `python scripts/meta_insights.py --account <id> --level ad --daily --days 14 --json`
+2. Score fatigue per ad: `python scripts/meta_creatives.py --account <id> --fatigue --days 14 --json`
 
 ## Analysis Framework
 
@@ -19,11 +19,14 @@ You are a Meta Ads creative analyst. When given an ad account ID:
 - Compare performance by format (image vs video vs carousel)
 
 ### Fatigue Detection
-For each active creative:
-- Calculate frequency over the last 14 days
-- Track CTR trend (7-day rolling average)
-- Flag as **fatigued** if: frequency > 3.0 AND CTR declined >20% from peak
-- Flag as **near-fatigue** if: frequency > 2.5 AND CTR declined >10%
+The `--fatigue` output scores every ad. Use its numbers and do not recompute them.
+- `frequency`: the ad's frequency over the period, as Meta reports it
+- `ctr_change` and `cpm_change`: the second half of the period against the first half, as a fraction (-0.4 is a 40% fall)
+- `status` is **fatigued** when frequency > 3.0 AND CTR fell more than 20%
+- `status` is **near_fatigue** when frequency > 2.5 AND CTR fell more than 10%
+- `fatigue_score` runs from 0 to 1 and sets the order. `recommendation` says whether to rotate.
+- `not_scored` lists ads with too few impressions in one half to compare. Report them as not assessed. They are not healthy by default.
+- A rising CPM with a falling CTR supports the fatigue reading. A falling CTR at low frequency is more likely an audience or offer problem.
 
 ### Pattern Analysis
 - Which ad formats perform best (image, video, carousel)?

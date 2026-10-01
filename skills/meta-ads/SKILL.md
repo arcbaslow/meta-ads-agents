@@ -30,6 +30,8 @@ Supports multiple ad accounts.
 | `/meta-ads audience <account-id>` | Audience targeting and demographic insights |
 | `/meta-ads events <account-id>` | Pixel/CAPI health and conversion funnel |
 | `/meta-ads budget <account-id>` | Budget utilization and scaling opportunities |
+| `/meta-ads delivery <account-id>` | Why ad sets are not spending: caps, learning phase, budget |
+| `/meta-ads changes <account-id>` | Change history lined up with performance before and after |
 | `/meta-ads report <account-id>` | Generate PDF/HTML report |
 | `/meta-ads auth` | Set up authentication (OAuth or manual token) |
 | `/meta-ads accounts` | List accessible ad accounts |
@@ -46,6 +48,8 @@ When the user invokes `/meta-ads`:
 | `audience <id>` | meta-ads-audience skill |
 | `events <id>` | meta-ads-events skill |
 | `budget <id>` | meta-ads-budget skill |
+| `delivery <id>` | meta-ads-delivery skill |
+| `changes <id>` | meta-ads-changes skill |
 | `report <id>` | meta-ads-report skill |
 | `auth` | Run `python scripts/meta_auth.py --oauth` or `--configure` |
 | `accounts` | Run `python scripts/meta_auth.py --accounts` |
@@ -58,6 +62,8 @@ For ad-hoc queries without explicit commands:
 - "Best performing audiences?" → meta-ads-audience
 - "Is my pixel working?" → meta-ads-events
 - "Should I increase my budget?" → meta-ads-budget
+- "Why is this ad set not spending?" → meta-ads-delivery
+- "What changed before this dropped?" → meta-ads-changes
 - "Run a full analysis" → meta-ads-audit
 
 ## Authentication

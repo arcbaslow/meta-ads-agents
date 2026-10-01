@@ -18,7 +18,7 @@ metadata:
 
 1. Verify auth: `python scripts/meta_auth.py --check`
 2. Spawn `meta-creative` agent with the account ID
-3. Agent analyzes creative performance and fatigue signals
+3. Agent analyzes creative performance and runs `python scripts/meta_creatives.py --account <id> --fatigue --days 14 --json` for fatigue scores
 4. Present top/bottom performers, fatigue alerts, format insights
 5. Offer report generation
 

@@ -19,7 +19,8 @@ def tmp_cache_dir(monkeypatch, tmp_path):
 
     Without this, a test that exercises a cache or auth path writes to
     the real `~/.claude/meta-ads-credentials.json` and the real system
-    temp cache.
+    temp cache. The token environment variable is cleared for the same
+    reason.
     """
     import meta_auth
     import meta_utils
@@ -28,4 +29,6 @@ def tmp_cache_dir(monkeypatch, tmp_path):
     creds_path = str(tmp_path / "meta-ads-credentials.json")
     monkeypatch.setattr(meta_utils, "CACHE_DIR", cache_dir)
     monkeypatch.setattr(meta_auth, "CREDENTIALS_PATH", creds_path)
+    # A token exported in the developer's shell must not reach a test.
+    monkeypatch.delenv(meta_auth.TOKEN_ENV_VAR, raising=False)
     return tmp_path

@@ -117,6 +117,65 @@ class TestTokenValidation(unittest.TestCase):
         self.assertNotIn("warning", result)
 
 
+class TestTokenFromEnvironment(unittest.TestCase):
+    """META_ACCESS_TOKEN lets the adapters run with nothing stored on disk."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        meta_auth.CREDENTIALS_PATH = os.path.join(self.tmpdir, "meta-ads-credentials.json")
+
+    def test_no_token_anywhere(self):
+        self.assertIsNone(meta_auth.get_access_token())
+
+    def test_file_token_is_used_when_the_variable_is_unset(self):
+        meta_auth.save_credentials({"access_token": "from-file"})
+        self.assertEqual(meta_auth.get_access_token(), "from-file")
+
+    def test_environment_wins_over_the_file(self):
+        meta_auth.save_credentials({"access_token": "from-file"})
+        with patch.dict(os.environ, {meta_auth.TOKEN_ENV_VAR: "from-env"}):
+            self.assertEqual(meta_auth.get_access_token(), "from-env")
+
+    def test_blank_variable_is_ignored(self):
+        meta_auth.save_credentials({"access_token": "from-file"})
+        with patch.dict(os.environ, {meta_auth.TOKEN_ENV_VAR: "  "}):
+            self.assertEqual(meta_auth.get_access_token(), "from-file")
+
+    @patch("meta_auth.validate_token_with_api", return_value={"is_valid": True})
+    def test_check_with_environment_token_needs_no_file(self, _validate):
+        with patch.dict(os.environ, {meta_auth.TOKEN_ENV_VAR: "from-env"}):
+            result = meta_auth.check_auth()
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["auth_method"], "env")
+        self.assertNotIn("from-env", str(result))
+        self.assertFalse(os.path.exists(meta_auth.CREDENTIALS_PATH))
+
+    @patch("meta_auth.list_ad_accounts", return_value=[{"id": "act_1", "name": "A"}])
+    def test_accounts_with_environment_token_go_through_the_cache(self, list_accounts):
+        with patch.dict(os.environ, {meta_auth.TOKEN_ENV_VAR: "from-env"}):
+            first = meta_auth.accounts_result()
+            second = meta_auth.accounts_result()
+        self.assertEqual(first, second)
+        self.assertEqual(first["ad_accounts"][0]["id"], "act_1")
+        self.assertEqual(list_accounts.call_count, 1)
+
+    def test_adapter_reports_missing_token_as_json(self):
+        import contextlib
+        import io
+        import json
+        import sys
+
+        import meta_insights
+
+        out = io.StringIO()
+        with patch.object(sys, "argv", ["meta_insights.py", "--account", "act_1"]), \
+                contextlib.redirect_stdout(out), self.assertRaises(SystemExit):
+            meta_insights.main()
+        result = json.loads(out.getvalue())
+        self.assertEqual(result["status"], "error")
+        self.assertIn(meta_auth.TOKEN_ENV_VAR, result["message"])
+
+
 class TestOAuthCallbackState(unittest.TestCase):
     """The callback listener must reject a code that doesn't carry our state."""
 

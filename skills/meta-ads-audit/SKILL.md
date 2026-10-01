@@ -19,13 +19,14 @@ metadata:
 3. **Detect conversion optimization**: Check if any campaigns use OUTCOME_SALES, OUTCOME_LEADS, or OUTCOME_APP_PROMOTION objectives
 4. **Delegate to agents in parallel**:
 
-   ALWAYS (6 core agents):
+   ALWAYS (7 core agents):
    - `meta-performance` — campaign/ad set/ad metrics, trends, anomalies
    - `meta-creative` — creative performance, fatigue detection, format analysis
    - `meta-audience` — targeting effectiveness, overlap, demographics, placements
    - `meta-events` — pixel health, CAPI coverage, conversion funnel
    - `meta-budget` — budget utilization, allocation, bid strategies, scaling
    - `meta-account` — account structure, naming, hygiene, consolidation
+   - `meta-delivery` — stalled ad sets, caps below real CPA, learning phase, budget size
 
    CONDITIONAL:
    - `meta-attribution` — attribution windows, click vs view, cross-campaign overlap (spawn when conversion-optimized campaigns detected in step 3)
@@ -46,6 +47,7 @@ Agent: meta-audience — "Analyze audience targeting for account <id>"
 Agent: meta-events — "Analyze pixel and event tracking for account <id>"
 Agent: meta-budget — "Analyze budget utilization for account <id>"
 Agent: meta-account — "Analyze account structure for account <id>"
+Agent: meta-delivery — "Diagnose delivery for account <id>"
 
 # Conditional (if conversion objectives detected):
 Agent: meta-attribution — "Analyze attribution settings for account <id>"
@@ -70,9 +72,10 @@ Agent: meta-attribution — "Analyze attribution settings for account <id>"
 5. **Events & Tracking** (from meta-events agent)
 6. **Budget** (from meta-budget agent)
 7. **Account Structure** (from meta-account agent)
-8. **Attribution** (from meta-attribution agent, if applicable)
+8. **Delivery** (from meta-delivery agent)
+9. **Attribution** (from meta-attribution agent, if applicable)
 
-9. **Prioritized Action Plan**
+10. **Prioritized Action Plan**
    - **Critical**: Issues causing money waste or tracking failures (fix immediately)
    - **High**: Significant optimization opportunities (fix within 1 week)
    - **Medium**: Improvements worth testing (fix within 1 month)
@@ -82,8 +85,8 @@ Agent: meta-attribution — "Analyze attribution settings for account <id>"
 
 | Scenario | Action |
 |----------|--------|
-| Auth token expired | Report error, guide user to re-authenticate |
-| Rate limited (429) | Back off, report partial results from completed agents |
+| Auth token expired (`"error_kind": "auth"`) | Report error, guide user to re-authenticate |
+| Rate limited (`"error_kind": "rate_limit"`) | Wait `retry_after_minutes` if given, report partial results from completed agents |
 | No active campaigns | Report account status, skip performance/creative/budget agents |
 | No pixel configured | Skip events agent, flag as Critical recommendation |
 | Agent timeout | Report findings from completed agents, note incomplete sections |

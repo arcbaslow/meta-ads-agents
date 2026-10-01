@@ -1,2 +1,2 @@
-facebook-business>=19.0.0
+facebook-business>=26.0.0,<27
 fpdf2>=2.8.1

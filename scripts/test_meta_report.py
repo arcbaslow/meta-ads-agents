@@ -199,6 +199,28 @@ class TestComparison(unittest.TestCase):
         campaigns = {c["name"]: c for c in result["campaigns"]}
         self.assertEqual(campaigns["Campaign A"]["status"], "active")
 
+    def test_comparison_is_rendered_in_the_report(self):
+        """--compare used to compute the comparison and then leave it out of
+        the markdown, HTML and PDF it wrote."""
+        data = dict(SAMPLE_DATA)
+        data["comparison"] = meta_report.generate_comparison(SAMPLE_DATA, PREVIOUS_DATA)
+        md = meta_report.generate_markdown(data)
+        self.assertIn("## Period comparison", md)
+        self.assertIn(PREVIOUS_DATA["date_range"], md)
+        self.assertIn("| Spend | $3,104.23 | $2,800.00 | +10.9% |", md)
+        self.assertIn("| Campaign B | new |", md)
+        self.assertIn("| Campaign C | removed |", md)
+
+    def test_new_campaign_has_no_percentage_change(self):
+        data = dict(SAMPLE_DATA)
+        data["comparison"] = meta_report.generate_comparison(SAMPLE_DATA, PREVIOUS_DATA)
+        row = [line for line in meta_report.generate_markdown(data).splitlines()
+               if line.startswith("| Campaign B |")][0]
+        self.assertIn("n/a", row)
+
+    def test_report_without_comparison_has_no_comparison_section(self):
+        self.assertNotIn("Period comparison", meta_report.generate_markdown(SAMPLE_DATA))
+
 
 class TestFileWriting(unittest.TestCase):
     def test_write_markdown_file(self):

@@ -28,6 +28,28 @@ class TestCreativeFormatDetection(unittest.TestCase):
         creative = {"video_id": "12345"}
         self.assertEqual(meta_creatives.detect_format(creative), "video")
 
+    def test_detect_video_from_object_story_spec(self):
+        creative = {"object_story_spec": {"video_data": {"video_id": "123"}}}
+        self.assertEqual(meta_creatives.detect_format(creative), "video")
+
+    def test_detect_image_from_object_story_spec(self):
+        creative = {"object_story_spec": {"photo_data": {"image_hash": "abc"}}}
+        self.assertEqual(meta_creatives.detect_format(creative), "image")
+
+    def test_carousel_wins_over_a_cover_image(self):
+        """A carousel creative can also carry an image_url for its first card."""
+        creative = {
+            "image_url": "https://example.com/card1.jpg",
+            "object_story_spec": {"link_data": {"child_attachments": [{}, {}]}},
+        }
+        self.assertEqual(meta_creatives.detect_format(creative), "carousel")
+
+    def test_detect_image_from_image_hash(self):
+        self.assertEqual(meta_creatives.detect_format({"image_hash": "abc"}), "image")
+
+    def test_null_object_type_does_not_crash(self):
+        self.assertEqual(meta_creatives.detect_format({"object_type": None}), "unknown")
+
     def test_detect_unknown(self):
         creative = {}
         self.assertEqual(meta_creatives.detect_format(creative), "unknown")

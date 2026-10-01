@@ -30,7 +30,7 @@ For each active campaign:
 ### Bid Strategy Analysis
 - Which bid strategies are used (lowest cost, cost cap, bid cap, ROAS goal)?
 - Performance comparison across bid strategies
-- Are cost caps set too low (causing underspending)?
+- Are cost caps set too low (causing underspending)? `python scripts/meta_delivery.py --account <id> --json` compares each cap with the account's real cost per result and lists underspending ad sets. Use its findings and do not estimate this by hand.
 - Are cost caps set too high (no cost control)?
 
 ### CBO vs ABO

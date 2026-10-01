@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 import meta_auth
 import meta_campaigns
+import meta_utils
 
 METRICS = [
     "campaign_id", "campaign_name",
@@ -85,13 +86,28 @@ def build_attribution_params(days=30, level="campaign"):
     }
 
 
+def cache_key_for(level, days, breakdown=None, daily=False, attribution=False):
+    """Cache key for one insights query.
+
+    Every flag that changes the response has to be part of the key, or two
+    different queries read each other's cached result.
+    """
+    key = f"insights_{level}_{days}d"
+    if attribution:
+        return key + "_attribution"
+    if breakdown:
+        key += f"_{breakdown}"
+    if daily:
+        key += "_daily"
+    return key
+
+
 def fetch_insights(account_id, access_token, days=30, level="campaign",
                    breakdown=None, time_increment=None):
     """Fetch insights from Meta Marketing API."""
     from facebook_business.adobjects.adaccount import AdAccount
-    from facebook_business.api import FacebookAdsApi
 
-    api = FacebookAdsApi.init(access_token=access_token)
+    api = meta_utils.init_api(access_token)
     account = AdAccount(account_id, api=api)
 
     start_date, end_date = compute_date_range(days)
@@ -119,7 +135,8 @@ def fetch_insights(account_id, access_token, days=30, level="campaign",
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch Meta Ads insights")
-    parser.add_argument("--account", required=True, help="Ad account ID (e.g., act_123456)")
+    parser.add_argument("--account", required=True, type=meta_utils.account_id_arg,
+                        help="Ad account ID (e.g., act_123456)")
     parser.add_argument("--days", type=int, default=30, help="Number of days to look back (default: 30)")
     parser.add_argument("--level", choices=["account", "campaign", "adset", "ad"], default="campaign",
                         help="Reporting level (default: campaign)")
@@ -138,15 +155,13 @@ def main():
     args = parser.parse_args()
     account_id = args.account
 
-    creds = meta_auth.load_credentials()
-    if not creds:
-        print(json.dumps({"status": "error", "message": "No credentials. Run meta_auth.py first"}))
+    token = meta_auth.get_access_token()
+    if not token:
+        print(json.dumps({"status": "error", "message": meta_auth.NO_TOKEN_MESSAGE}))
         sys.exit(1)
 
-    token = creds["access_token"]
-    cache_key = f"insights_{args.level}_{args.days}d"
-    if args.breakdown:
-        cache_key += f"_{args.breakdown}"
+    cache_key = cache_key_for(args.level, args.days, args.breakdown,
+                              args.daily, args.attribution)
 
     if not args.no_cache:
         cached = meta_campaigns.read_cache(args.account, cache_key)
@@ -157,20 +172,14 @@ def main():
     time_increment = "1" if args.daily else None
 
     if args.attribution:
-        cache_key = f"insights_{args.level}_{args.days}d_attribution"
-        if not args.no_cache:
-            cached = meta_campaigns.read_cache(args.account, cache_key)
-            if cached:
-                print(json.dumps(cached, indent=2))
-                return
-
         from facebook_business.adobjects.adaccount import AdAccount
-        from facebook_business.api import FacebookAdsApi
-        api = FacebookAdsApi.init(access_token=token)
+        api = meta_utils.init_api(token)
         account = AdAccount(account_id, api=api)
 
         params = build_attribution_params(args.days, args.level)
-        raw = list(account.get_insights(fields=METRICS, params=params))
+        raw = meta_campaigns.api_call_with_retry(
+            lambda: list(account.get_insights(fields=METRICS, params=params))
+        )
         raw = [meta_campaigns.to_plain(dict(r)) for r in raw]
 
         result = {
@@ -206,4 +215,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    meta_utils.run_cli(main)

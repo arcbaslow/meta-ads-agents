@@ -19,22 +19,21 @@ CACHE_TTL = meta_utils.CACHE_TTL
 def _init_account(account_id, access_token):
     """Initialize a Meta API AdAccount object."""
     from facebook_business.adobjects.adaccount import AdAccount
-    from facebook_business.api import FacebookAdsApi
 
-    api = FacebookAdsApi.init(access_token=access_token)
+    api = meta_utils.init_api(access_token)
     return AdAccount(account_id, api=api)
 
 
-def _paginated_fetch(cursor, page_size=500):
-    """Iterate through a Meta SDK Cursor and collect all pages as plain dicts.
+def _paginated_fetch(open_cursor):
+    """Open a Meta SDK Cursor and collect every page as plain dicts.
 
-    The SDK Cursor auto-paginates, but we process in chunks to avoid
-    loading everything into memory at once for large accounts.
+    Takes a callable rather than a cursor so that the first request and
+    each later page load sit inside the retry wrapper. A retry starts the
+    listing again from the first page.
     """
-    results = []
-    for obj in cursor:
-        results.append(to_plain(dict(obj)))
-    return results
+    return api_call_with_retry(
+        lambda: [to_plain(dict(obj)) for obj in open_cursor()]
+    )
 
 
 def fetch_campaigns(account_id, access_token, active_only=False):
@@ -51,8 +50,7 @@ def fetch_campaigns(account_id, access_token, active_only=False):
     if active_only:
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
-    cursor = account.get_campaigns(fields=fields, params=params)
-    return _paginated_fetch(cursor)
+    return _paginated_fetch(lambda: account.get_campaigns(fields=fields, params=params))
 
 
 def fetch_adsets(account_id, access_token, active_only=False):
@@ -69,8 +67,7 @@ def fetch_adsets(account_id, access_token, active_only=False):
     if active_only:
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
-    cursor = account.get_ad_sets(fields=fields, params=params)
-    return _paginated_fetch(cursor)
+    return _paginated_fetch(lambda: account.get_ad_sets(fields=fields, params=params))
 
 
 def fetch_ads(account_id, access_token, active_only=False):
@@ -85,8 +82,7 @@ def fetch_ads(account_id, access_token, active_only=False):
     if active_only:
         params["filtering"] = [{"field": "status", "operator": "IN", "value": ["ACTIVE"]}]
 
-    cursor = account.get_ads(fields=fields, params=params)
-    return _paginated_fetch(cursor)
+    return _paginated_fetch(lambda: account.get_ads(fields=fields, params=params))
 
 
 def build_hierarchy(campaigns, adsets, ads):
@@ -119,7 +115,8 @@ def build_hierarchy(campaigns, adsets, ads):
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch Meta Ads campaign structure")
-    parser.add_argument("--account", required=True, help="Ad account ID (e.g., act_123456)")
+    parser.add_argument("--account", required=True, type=meta_utils.account_id_arg,
+                        help="Ad account ID (e.g., act_123456)")
     parser.add_argument("--active-only", action="store_true", help="Only fetch active entities")
     parser.add_argument("--fetch-all", action="store_true", help="Fetch full hierarchy (campaigns + ad sets + ads)")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache, fetch fresh data")
@@ -132,13 +129,11 @@ def main():
 
     args = parser.parse_args()
 
-    # Load credentials
-    creds = meta_auth.load_credentials()
-    if not creds:
-        print(json.dumps({"status": "error", "message": "No credentials. Run meta_auth.py --oauth or --configure"}))
+    token = meta_auth.get_access_token()
+    if not token:
+        print(json.dumps({"status": "error", "message": meta_auth.NO_TOKEN_MESSAGE}))
         sys.exit(1)
 
-    token = creds["access_token"]
     account_id = args.account
 
     # Check cache (include active_only in key to avoid collisions)
@@ -178,4 +173,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    meta_utils.run_cli(main)

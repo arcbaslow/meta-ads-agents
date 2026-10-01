@@ -8,6 +8,7 @@ import sys
 
 import meta_auth
 import meta_campaigns
+import meta_utils
 
 logger = logging.getLogger("meta_ads")
 
@@ -23,6 +24,39 @@ FUNNEL_ORDER = [
     "PageView", "ViewContent", "Search", "AddToCart",
     "InitiateCheckout", "AddPaymentInfo", "Purchase",
 ]
+
+
+# Insights reports website pixel events as offsite_conversion.fb_pixel_<event>.
+# Names from the AdsActionStats reference:
+# https://developers.facebook.com/docs/marketing-api/reference/ads-action-stats/
+_PIXEL_ACTION_PREFIX = "offsite_conversion.fb_pixel_"
+_PIXEL_ACTION_EVENTS = {
+    "view_content": "ViewContent",
+    "search": "Search",
+    "add_to_cart": "AddToCart",
+    "add_to_wishlist": "AddToWishlist",
+    "initiate_checkout": "InitiateCheckout",
+    "add_payment_info": "AddPaymentInfo",
+    "purchase": "Purchase",
+    "lead": "Lead",
+    "complete_registration": "CompleteRegistration",
+}
+
+
+def website_event_name(action_type):
+    """Map an insights action type to the pixel event it counts.
+
+    Returns the standard event name for offsite_conversion.fb_pixel_<event>,
+    the action type itself for custom pixel events and custom conversions,
+    and None for anything that is not a website event (link clicks, post
+    engagement, the omni_ and on-Facebook groupings).
+    """
+    if not action_type.startswith("offsite_conversion."):
+        return None
+    if action_type.startswith(_PIXEL_ACTION_PREFIX):
+        suffix = action_type[len(_PIXEL_ACTION_PREFIX):]
+        return _PIXEL_ACTION_EVENTS.get(suffix, action_type)
+    return action_type
 
 
 def classify_event(event_name):
@@ -89,13 +123,18 @@ def build_funnel(event_counts):
 
 
 def fetch_pixel_events(account_id, access_token, days=7):
-    """Fetch pixel event data for an ad account."""
+    """Fetch the website events attributed to the account's ads.
+
+    These are insights actions, so they count events credited to an ad
+    within the attribution window, not everything the pixel received.
+    PageView is never among them. Raw pixel volumes are in the health
+    check's event_sources.
+    """
     from datetime import date, timedelta
 
     from facebook_business.adobjects.adaccount import AdAccount
-    from facebook_business.api import FacebookAdsApi
 
-    api = FacebookAdsApi.init(access_token=access_token)
+    api = meta_utils.init_api(access_token)
     account = AdAccount(account_id, api=api)
 
     end_date = date.today()
@@ -116,66 +155,118 @@ def fetch_pixel_events(account_id, access_token, days=7):
     event_values = {}
     for insight in insights:
         for action in insight.get("actions", []):
-            name = action.get("action_type", "")
-            count = int(action.get("value", 0))
+            name = website_event_name(action.get("action_type", ""))
+            if name is None:
+                continue
+            count = int(float(action.get("value", 0)))
             event_counts[name] = event_counts.get(name, 0) + count
         for action in insight.get("action_values", []):
-            name = action.get("action_type", "")
+            name = website_event_name(action.get("action_type", ""))
+            if name is None:
+                continue
             value = float(action.get("value", 0))
             event_values[name] = event_values.get(name, 0) + value
 
     return event_counts, event_values
 
 
+def sum_event_counts(stats):
+    """Total the per-event counts in a pixel stats response.
+
+    The stats edge returns one row per hour. With aggregation=event each
+    row's data list holds {"value": <event name>, "count": <n>} entries.
+    """
+    totals = {}
+    for row in stats:
+        for entry in row.get("data", []):
+            name = entry.get("value") or entry.get("event")
+            if not name:
+                continue
+            totals[name] = totals.get(name, 0) + int(entry.get("count", 0) or 0)
+    return totals
+
+
+def fetch_event_sources(pixel, days=3):
+    """Count a pixel's events separately for the browser and the server.
+
+    The stats rows carry no source field, so the split comes from the
+    edge's event_source filter: WEB_ONLY for the browser pixel and
+    SERVER_ONLY for the Conversions API.
+
+    Returns a dict of event name -> {"browser": n, "server": n}.
+    """
+    from datetime import date, timedelta
+
+    sources = {}
+    for label, event_source in (("browser", "WEB_ONLY"), ("server", "SERVER_ONLY")):
+        params = {
+            "aggregation": "event",
+            "event_source": event_source,
+            "start_time": (date.today() - timedelta(days=days)).isoformat(),
+            "end_time": date.today().isoformat(),
+        }
+        stats = meta_campaigns.api_call_with_retry(
+            lambda: [meta_campaigns.to_plain(dict(s)) for s in pixel.get_stats(params=params)]
+        )
+        for name, count in sum_event_counts(stats).items():
+            sources.setdefault(name, {"browser": 0, "server": 0})[label] = count
+    return sources
+
+
 def fetch_pixel_health(account_id, access_token):
     """Check pixel configuration and health status, including CAPI detection."""
     from facebook_business.adobjects.adaccount import AdAccount
-    from facebook_business.api import FacebookAdsApi
+    from facebook_business.adobjects.adspixel import AdsPixel
 
-    api = FacebookAdsApi.init(access_token=access_token)
+    api = meta_utils.init_api(access_token)
     account = AdAccount(account_id, api=api)
 
-    pixels = list(account.get_ads_pixels(fields=[
+    pixel_fields = [
         "id", "name", "is_unavailable", "data_use_setting",
         "creation_time", "last_fired_time",
-    ]))
+    ]
+    pixels = meta_campaigns.api_call_with_retry(
+        lambda: list(account.get_ads_pixels(fields=pixel_fields))
+    )
 
     pixel_data = []
     for pixel in pixels:
         pixel_dict = meta_campaigns.to_plain(dict(pixel))
-
-        # Try to detect CAPI by querying pixel stats for server events
-        server_events = []
-        try:
-            from datetime import date, timedelta
-
-            from facebook_business.adobjects.adspixel import AdsPixel
-            px = AdsPixel(pixel_dict["id"], api=api)
-            stats = list(px.get_stats(params={
-                "aggregation": "event",
-                "start_time": (date.today() - timedelta(days=3)).isoformat(),
-                "end_time": date.today().isoformat(),
-            }))
-            for stat in stats:
-                stat_dict = meta_campaigns.to_plain(dict(stat))
-                for entry in stat_dict.get("data", []):
-                    if entry.get("source") == "server" and entry.get("value", 0) > 0:
-                        server_events.append({
-                            "event_name": entry.get("event"),
-                            "source": "server",
-                        })
-        except Exception as e:
-            logger.warning("CAPI detection failed for pixel %s: %s", pixel_dict.get("id"), e)
-
-        result = detect_capi_status(pixel_dict, server_events)
-        pixel_data.append(result)
+        pixel_data.append(pixel_health(pixel_dict, AdsPixel(pixel_dict["id"], api=api)))
 
     return pixel_data
 
 
+def pixel_health(pixel_dict, pixel):
+    """Add CAPI status and the browser/server event split to one pixel."""
+    try:
+        sources = fetch_event_sources(pixel)
+    except Exception as e:
+        # Unknown is not the same as absent. Reporting has_capi False here
+        # would tell the reader to set up something they may already have.
+        reason = meta_utils.error_text(e)
+        logger.warning("CAPI detection failed for pixel %s: %s", pixel_dict.get("id"), reason)
+        return {
+            **pixel_dict,
+            "has_capi": None,
+            "server_events": [],
+            "event_sources": {},
+            "capi_check_error": reason,
+        }
+
+    server_events = [
+        {"event_name": name, "source": "server"}
+        for name, counts in sorted(sources.items()) if counts["server"] > 0
+    ]
+    result = detect_capi_status(pixel_dict, server_events)
+    result["event_sources"] = sources
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch Meta Pixel/CAPI event data")
-    parser.add_argument("--account", required=True, help="Ad account ID")
+    parser.add_argument("--account", required=True, type=meta_utils.account_id_arg,
+                        help="Ad account ID")
     parser.add_argument("--days", type=int, default=7, help="Days to look back (default: 7)")
     parser.add_argument("--health-check", action="store_true", help="Quick pixel health status")
     parser.add_argument("--funnel", action="store_true", help="Build conversion funnel")
@@ -189,22 +280,28 @@ def main():
 
     args = parser.parse_args()
 
-    creds = meta_auth.load_credentials()
-    if not creds:
-        print(json.dumps({"status": "error", "message": "No credentials"}))
+    token = meta_auth.get_access_token()
+    if not token:
+        print(json.dumps({"status": "error", "message": meta_auth.NO_TOKEN_MESSAGE}))
         sys.exit(1)
 
-    token = creds["access_token"]
-
     if args.health_check:
+        cache_key = "pixel_health"
+        if not args.no_cache:
+            cached = meta_campaigns.read_cache(args.account, cache_key)
+            if cached:
+                print(json.dumps(cached, indent=2))
+                return
+
         pixels = fetch_pixel_health(args.account, token)
         result = {
             "status": "ok",
             "account_id": args.account,
             "pixels": pixels,
         }
+        meta_campaigns.write_cache(args.account, cache_key, result)
     else:
-        cache_key = f"events_{args.days}d"
+        cache_key = f"events_{args.days}d" + ("_funnel" if args.funnel else "")
         if not args.no_cache:
             cached = meta_campaigns.read_cache(args.account, cache_key)
             if cached:
@@ -238,4 +335,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    meta_utils.run_cli(main)

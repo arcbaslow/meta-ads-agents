@@ -16,9 +16,19 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
+import meta_utils
+
 CREDENTIALS_PATH = os.path.expanduser("~/.claude/meta-ads-credentials.json")
 REDIRECT_URI = "http://localhost:8477/callback"
 SCOPES = ["ads_read", "ads_management", "read_insights", "business_management"]
+
+# A token in the environment wins over the credentials file. It is the way
+# to run the adapters in CI or on a schedule, where nothing should be
+# written to disk.
+TOKEN_ENV_VAR = "META_ACCESS_TOKEN"
+NO_TOKEN_MESSAGE = (
+    f"No access token. Set {TOKEN_ENV_VAR}, or run meta_auth.py --oauth or --configure"
+)
 
 
 def load_credentials():
@@ -27,6 +37,18 @@ def load_credentials():
         return None
     with open(CREDENTIALS_PATH, "r") as f:
         return json.load(f)
+
+
+def get_access_token():
+    """Return the access token to use, or None when there is none.
+
+    Reads META_ACCESS_TOKEN first and falls back to the credentials file.
+    """
+    token = os.environ.get(TOKEN_ENV_VAR, "").strip()
+    if token:
+        return token
+    creds = load_credentials()
+    return (creds or {}).get("access_token") or None
 
 
 def save_credentials(creds):
@@ -46,18 +68,26 @@ def validate_token_with_api(access_token):
     """Validate token against Meta's debug_token endpoint."""
     try:
         from facebook_business.adobjects.user import User
-        from facebook_business.api import FacebookAdsApi
 
-        api = FacebookAdsApi.init(access_token=access_token)
+        api = meta_utils.init_api(access_token)
         me = User(fbid="me", api=api)
         me.api_get(fields=["id", "name"])
         return {"is_valid": True, "expires_at": 0, "scopes": SCOPES}
     except Exception as e:
-        return {"is_valid": False, "error": str(e)}
+        return {"is_valid": False, "error": meta_utils.error_text(e)}
 
 
 def check_auth():
     """Check if current credentials are valid. Returns status JSON."""
+    if os.environ.get(TOKEN_ENV_VAR, "").strip():
+        result = validate_token_with_api(get_access_token())
+        if not result.get("is_valid"):
+            return {"status": "error",
+                    "message": f"Token invalid: {result.get('error', 'unknown')}"}
+        # Nothing is stored for an environment token, so there is no saved
+        # expiry or account list to report. --accounts lists the accounts.
+        return {"status": "ok", "auth_method": "env", "token_source": TOKEN_ENV_VAR}
+
     creds = load_credentials()
     if not creds:
         return {"status": "error", "message": "No credentials found. Run: meta_auth.py --oauth or --configure"}
@@ -96,9 +126,8 @@ def check_auth():
 def list_ad_accounts(access_token):
     """Fetch all accessible ad accounts for the authenticated user."""
     from facebook_business.adobjects.user import User
-    from facebook_business.api import FacebookAdsApi
 
-    api = FacebookAdsApi.init(access_token=access_token)
+    api = meta_utils.init_api(access_token)
     me = User(fbid="me", api=api)
     accounts = me.get_ad_accounts(fields=["id", "name", "currency", "account_status"])
     return [
@@ -124,7 +153,7 @@ def exchange_for_long_lived_token(app_id, app_secret, short_token):
         "client_secret": app_secret,
         "fb_exchange_token": short_token,
     })
-    url = f"https://graph.facebook.com/v21.0/oauth/access_token?{params}"
+    url = f"https://graph.facebook.com/{meta_utils.API_VERSION}/oauth/access_token?{params}"
     try:
         with urllib.request.urlopen(url) as resp:
             data = json.loads(resp.read().decode())
@@ -182,7 +211,7 @@ def run_oauth_flow(app_id, app_secret):
     OAuthCallbackHandler.auth_code = None
     OAuthCallbackHandler.expected_state = state
 
-    auth_url = "https://www.facebook.com/v21.0/dialog/oauth?" + urlencode({
+    auth_url = f"https://www.facebook.com/{meta_utils.API_VERSION}/dialog/oauth?" + urlencode({
         "client_id": app_id,
         "redirect_uri": REDIRECT_URI,
         "scope": ",".join(SCOPES),
@@ -214,7 +243,7 @@ def run_oauth_flow(app_id, app_secret):
         "redirect_uri": REDIRECT_URI,
         "code": code,
     })
-    url = f"https://graph.facebook.com/v21.0/oauth/access_token?{params}"
+    url = f"https://graph.facebook.com/{meta_utils.API_VERSION}/oauth/access_token?{params}"
     try:
         with urllib.request.urlopen(url) as resp:
             data = json.loads(resp.read().decode())
@@ -265,6 +294,27 @@ def run_manual_config(app_id, app_secret, access_token):
     return {"status": "ok", "ad_accounts": accounts}
 
 
+def accounts_result():
+    """Ad accounts for --accounts.
+
+    With a token in the environment the list comes from the API through the
+    response cache. Otherwise it is the list saved at login.
+    """
+    if os.environ.get(TOKEN_ENV_VAR, "").strip():
+        accounts = meta_utils.read_cache("me", "ad_accounts")
+        if accounts is None:
+            accounts = meta_utils.api_call_with_retry(
+                lambda: list_ad_accounts(get_access_token())
+            )
+            meta_utils.write_cache("me", "ad_accounts", accounts)
+        return {"status": "ok", "ad_accounts": accounts}
+
+    creds = load_credentials()
+    if not creds:
+        return {"status": "error", "message": "No credentials found"}
+    return {"status": "ok", "ad_accounts": creds.get("ad_accounts", [])}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Meta Ads authentication")
     group = parser.add_mutually_exclusive_group(required=True)
@@ -282,11 +332,7 @@ def main():
     if args.check:
         result = check_auth()
     elif args.accounts:
-        creds = load_credentials()
-        if not creds:
-            result = {"status": "error", "message": "No credentials found"}
-        else:
-            result = {"status": "ok", "ad_accounts": creds.get("ad_accounts", [])}
+        result = accounts_result()
     elif args.oauth:
         if not args.app_id or not args.app_secret:
             result = {"status": "error", "message": "--app-id and --app-secret required for OAuth"}
@@ -302,4 +348,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    meta_utils.run_cli(main)

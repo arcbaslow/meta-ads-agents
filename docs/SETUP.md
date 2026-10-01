@@ -9,8 +9,8 @@
 ## Step 1: Install Python Dependencies
 
 ```bash
-cd claude-meta-ads/scripts
-pip install -r requirements.txt
+cd meta-ads-agents
+python -m pip install -e .
 ```
 
 ## Step 2: Create a Meta App
@@ -18,7 +18,7 @@ pip install -r requirements.txt
 1. Go to [Meta for Developers](https://developers.facebook.com/)
 2. Click **My Apps** → **Create App**
 3. Select **Business** as the app type
-4. Fill in the app name (e.g., "Claude Meta Ads Analyzer")
+4. Fill in the app name (e.g., "Meta Ads Analysis")
 5. Select your Business Manager account (or create one)
 
 ## Step 3: Add Marketing API
@@ -56,6 +56,17 @@ For system user tokens (e.g., from Business Manager):
 python scripts/meta_auth.py --configure --app-id YOUR_APP_ID --app-secret YOUR_APP_SECRET --access-token YOUR_TOKEN
 ```
 
+### Option C: Environment Variable
+
+For CI or scheduled runs, put the token in the environment and store nothing on disk:
+
+```bash
+export META_ACCESS_TOKEN=...   # PowerShell: $env:META_ACCESS_TOKEN = "..."
+python scripts/meta_auth.py --check
+```
+
+When `META_ACCESS_TOKEN` is set it takes precedence over the credentials file.
+
 ## Step 6: Verify Setup
 
 ```bash
@@ -80,14 +91,15 @@ Add to your Claude Code settings (`.claude/settings.json`):
 ```json
 {
   "enabledPlugins": {
-    "claude-meta-ads@your-github-username": true
+    "meta-ads-agents@meta-ads-agents": true
   }
 }
 ```
 
 Or install via Claude Code:
 ```
-/install-plugin your-github-username/claude-meta-ads
+/plugin marketplace add arcbaslow/meta-ads-agents
+/plugin install meta-ads-agents@meta-ads-agents
 ```
 
 ## Usage
