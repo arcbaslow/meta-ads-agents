@@ -1,8 +1,52 @@
+import json
 import tempfile
 import unittest
+from unittest import mock
 
 import meta_campaigns
 import meta_utils
+
+
+def _throttled():
+    """The error the SDK raises when the ads insights limit is hit."""
+    from facebook_business.exceptions import FacebookRequestError
+    body = {"error": {"code": 80004, "message": "too many calls"}}
+    return FacebookRequestError("x", {}, 400, {}, json.dumps(body))
+
+
+class _FlakyAccount:
+    """Stands in for AdAccount: the first listing call is throttled."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def _listing(self, fields=None, params=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise _throttled()
+        return [{"id": "1", "name": "one"}]
+
+    get_campaigns = get_ad_sets = get_ads = _listing
+
+
+class TestStructureFetchRetries(unittest.TestCase):
+    """Campaign, ad set and ad listings used to skip the retry wrapper."""
+
+    def _fetch(self, fn):
+        account = _FlakyAccount()
+        with mock.patch.object(meta_campaigns, "_init_account", return_value=account),                 mock.patch.object(meta_utils.time, "sleep"):
+            rows = fn("act_1", "unused")
+        self.assertEqual(rows, [{"id": "1", "name": "one"}])
+        self.assertEqual(account.calls, 2)
+
+    def test_campaign_listing_retries_when_throttled(self):
+        self._fetch(meta_campaigns.fetch_campaigns)
+
+    def test_adset_listing_retries_when_throttled(self):
+        self._fetch(meta_campaigns.fetch_adsets)
+
+    def test_ad_listing_retries_when_throttled(self):
+        self._fetch(meta_campaigns.fetch_ads)
 
 
 class TestCacheLayerBackwardCompat(unittest.TestCase):

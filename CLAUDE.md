@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Notes for Claude Code working in `claude-meta-ads` (folder: meta-ads-agents).
+Notes for Claude Code working in `meta-ads-agents`.
 
 ## Status and asset role
 
-Shipped: v1.0.0, 79 tests. **Maintenance mode** - bugfixes, Meta API version
+Shipped: v1.0.2 (test count in docs/VERIFICATION.md). **Maintenance mode** - bugfixes, Meta API version
 bumps, and doc fixes only. New agents or analysis dimensions need an explicit
 owner decision; the active OSS slot belongs to capi-kit.
 

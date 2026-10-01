@@ -20,10 +20,12 @@ A read-only Python toolkit for Facebook and Instagram advertising analysis. Retr
 | Area | Included capabilities |
 | --- | --- |
 | Performance | Spend, purchases, revenue, ROAS, CPA, CTR and frequency at campaign, ad-set and ad level |
-| Creative | Creative metadata, metrics and fatigue heuristics |
+| Creative | Creative metadata, metrics, and per-ad fatigue scored from frequency, CTR change and CPM drift over the period |
 | Audiences | Age, gender, geography, device and placement breakdowns |
 | Measurement | Pixel/CAPI event health and conversion-funnel checks |
 | Budget | Agent analysis of utilization, pacing and bid-strategy fit |
+| Change history | Activity log lined up with each entity's metrics before and after a change |
+| Delivery | Stalled ad sets: caps below the account's real CPA, learning phase status, budgets too small for the optimisation event |
 | Reports | Markdown, HTML, PDF, CSV tables and period comparisons |
 
 The adapters retrieve data; specialist agents interpret it. The complete audit is an agent skill, not a standalone `meta_audit.py` command. Account mutation is not implemented.
@@ -57,6 +59,8 @@ python scripts/meta_auth.py --accounts
 ```
 
 The callback listens on `localhost:8477`. For environments where that flow is unavailable, use the manual configuration path documented in [setup](docs/SETUP.md). Credentials are stored locally in `~/.claude/meta-ads-credentials.json`; never commit that file.
+
+To run without a credentials file, for example in CI or on a schedule, set `META_ACCESS_TOKEN`. When it is set the adapters use it and do not read the file.
 
 Replace the example account ID with one returned by `--accounts`:
 
@@ -92,6 +96,8 @@ With the repository's [plugin](.claude-plugin/plugin.json) and [skills](skills/)
 /meta-ads audience act_123456789
 /meta-ads events act_123456789
 /meta-ads budget act_123456789
+/meta-ads delivery act_123456789
+/meta-ads changes act_123456789
 ```
 
 The audit skill distributes work across the specialists in [agents/](agents/), then combines their findings. Other agent runtimes can follow [AGENTS.md](AGENTS.md) and run the underlying adapters directly.
@@ -106,6 +112,31 @@ python scripts/meta_report.py --input current.json --compare previous.json --for
 ```
 
 Campaign queries typically use 30 days; event checks use 7. Inspect the adapter's `--help` for overrides. Benchmark reference files in [skills/meta-ads/references/](skills/meta-ads/references/) support interpretation; they are bundled reference material, not continuously updated market data.
+
+### Creative fatigue
+
+```bash
+python scripts/meta_creatives.py --account act_123456789 --fatigue --days 14
+```
+
+Compares each ad's CTR and CPM in the second half of the period with the first half, reads its frequency for the period, and labels it `fatigued`, `near_fatigue` or `ok` with a rotation recommendation. Ads with fewer than `--min-impressions` (default 1000) in either half are listed as not scored.
+
+### Delivery diagnosis
+
+```bash
+python scripts/meta_delivery.py --account act_123456789 --days 7
+```
+
+Lists active ad sets that Meta reports an issue on, that served nothing, or that underspend, and checks three causes: a bid or cost cap below the account's cost per optimisation event, learning limited status, and a weekly budget that buys fewer events than the learning phase needs. Findings are sorted and carry their evidence, so two runs on the same data produce the same output. Checks that cannot run are listed under `not_evaluated` with the reason.
+
+### Change history
+
+```bash
+python scripts/meta_changes.py --account act_123456789 --days 14 --window 3
+python scripts/meta_changes.py --account act_123456789 --level ad --action-type offsite_conversion.fb_pixel_purchase
+```
+
+Reads the ad account activity log and daily insights, and for every change to a campaign, ad set or ad compares spend per day, CPM and CTR (and CPA, when an action type is given) over the days before and after it. Changes followed by a move of 30% or more are listed first. This is a before and after comparison: it shows what moved together, not what caused it.
 
 ### Caching and API behavior
 
@@ -128,7 +159,7 @@ The fixture-based suite requires no Meta account and covers auth and OAuth state
 | [agents/](agents/) | Performance, creative, audience, events and other specialists |
 | [skills/](skills/) | `/meta-ads` commands and analysis reference material |
 | [examples/demo/](examples/demo/) | Synthetic report input and generated Markdown |
-| [docs/](docs/) | App setup, releases and verification |
+| [docs/](docs/) | App setup, releases, verification and the [roadmap](docs/ROADMAP.md) |
 
 ## Releases
 

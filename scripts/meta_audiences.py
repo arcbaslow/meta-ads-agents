@@ -7,6 +7,7 @@ import sys
 
 import meta_auth
 import meta_campaigns
+import meta_utils
 
 
 def classify_audience(audience):
@@ -54,9 +55,8 @@ def summarize_targeting(targeting):
 def fetch_custom_audiences(account_id, access_token):
     """Fetch custom audiences for an account."""
     from facebook_business.adobjects.adaccount import AdAccount
-    from facebook_business.api import FacebookAdsApi
 
-    api = FacebookAdsApi.init(access_token=access_token)
+    api = meta_utils.init_api(access_token)
     account = AdAccount(account_id, api=api)
 
     fields = [
@@ -73,13 +73,14 @@ def fetch_custom_audiences(account_id, access_token):
 def fetch_adset_targeting(account_id, access_token):
     """Fetch targeting specs from all ad sets."""
     from facebook_business.adobjects.adaccount import AdAccount
-    from facebook_business.api import FacebookAdsApi
 
-    api = FacebookAdsApi.init(access_token=access_token)
+    api = meta_utils.init_api(access_token)
     account = AdAccount(account_id, api=api)
 
     fields = ["id", "name", "campaign_id", "status", "targeting"]
-    adsets = list(account.get_ad_sets(fields=fields))
+    adsets = meta_campaigns.api_call_with_retry(
+        lambda: list(account.get_ad_sets(fields=fields))
+    )
 
     result = []
     for adset in adsets:
@@ -124,7 +125,8 @@ def analyze_overlap(adset_targeting):
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch Meta Ads audience data")
-    parser.add_argument("--account", required=True, help="Ad account ID")
+    parser.add_argument("--account", required=True, type=meta_utils.account_id_arg,
+                        help="Ad account ID")
     parser.add_argument("--overlap", action="store_true", help="Show audience overlap between ad sets")
     parser.add_argument("--no-cache", action="store_true", help="Skip cache")
     # Accepted as a no-op: every adapter already prints JSON to stdout.
@@ -136,12 +138,11 @@ def main():
 
     args = parser.parse_args()
 
-    creds = meta_auth.load_credentials()
-    if not creds:
-        print(json.dumps({"status": "error", "message": "No credentials"}))
+    token = meta_auth.get_access_token()
+    if not token:
+        print(json.dumps({"status": "error", "message": meta_auth.NO_TOKEN_MESSAGE}))
         sys.exit(1)
 
-    token = creds["access_token"]
     cache_key = "audiences_overlap" if args.overlap else "audiences"
 
     if not args.no_cache:
@@ -178,4 +179,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    meta_utils.run_cli(main)

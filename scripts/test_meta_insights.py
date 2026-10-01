@@ -1,6 +1,12 @@
+import contextlib
+import io
+import json
+import sys
 import unittest
 from datetime import date, timedelta
+from unittest import mock
 
+import meta_campaigns
 import meta_insights
 
 
@@ -66,6 +72,50 @@ class TestAttributionParams(unittest.TestCase):
         self.assertEqual(params["action_attribution_windows"], ["1d_click", "7d_click", "1d_view"])
         self.assertEqual(params["action_breakdowns"], ["action_type"])
         self.assertEqual(params["level"], "campaign")
+
+
+class TestCacheKeys(unittest.TestCase):
+    def test_daily_query_has_its_own_key(self):
+        plain = meta_insights.cache_key_for("campaign", 30)
+        daily = meta_insights.cache_key_for("campaign", 30, daily=True)
+        self.assertNotEqual(plain, daily)
+
+    def test_attribution_query_has_its_own_key(self):
+        plain = meta_insights.cache_key_for("campaign", 30)
+        attribution = meta_insights.cache_key_for("campaign", 30, attribution=True)
+        self.assertNotEqual(plain, attribution)
+
+    def test_breakdown_and_daily_combine(self):
+        keys = {
+            meta_insights.cache_key_for("ad", 14, breakdown="age"),
+            meta_insights.cache_key_for("ad", 14, breakdown="age", daily=True),
+            meta_insights.cache_key_for("ad", 14, daily=True),
+        }
+        self.assertEqual(len(keys), 3)
+
+
+class TestMainDoesNotServeTheWrongCache(unittest.TestCase):
+    """A cached summary query used to be returned for --daily and --attribution."""
+
+    def _run(self, argv):
+        out = io.StringIO()
+        with mock.patch.object(sys, "argv", ["meta_insights.py"] + argv),                 mock.patch.object(meta_insights.meta_auth, "load_credentials",
+                                  return_value={"access_token": "placeholder"}),                 mock.patch.object(meta_insights, "fetch_insights",
+                                  return_value=[{"date_start": "2026-09-01", "spend": "1"}]),                 contextlib.redirect_stdout(out):
+            meta_insights.main()
+        return json.loads(out.getvalue())
+
+    def test_daily_after_summary_fetches_daily_rows(self):
+        meta_campaigns.write_cache("act_1", meta_insights.cache_key_for("campaign", 30),
+                                   {"status": "ok", "summary": {"total_spend": 99}, "data": []})
+        result = self._run(["--account", "act_1", "--daily"])
+        self.assertNotIn("summary", result)
+        self.assertEqual(result["total_rows"], 1)
+
+    def test_summary_after_daily_is_not_the_daily_rows(self):
+        self._run(["--account", "act_1", "--daily"])
+        result = self._run(["--account", "act_1"])
+        self.assertIn("summary", result)
 
 
 if __name__ == "__main__":

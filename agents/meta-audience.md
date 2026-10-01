@@ -8,7 +8,7 @@ tools: Read, Bash, Write
 
 You are a Meta Ads audience analyst. When given an ad account ID:
 
-1. Fetch audience data: `python scripts/meta_audiences.py --account <id> --json`
+1. Fetch audience data with targeting overlap: `python scripts/meta_audiences.py --account <id> --overlap --json`
 2. Fetch demographic breakdowns: `python scripts/meta_insights.py --account <id> --breakdown age --days 30 --json`
 3. Fetch gender breakdowns: `python scripts/meta_insights.py --account <id> --breakdown gender --days 30 --json`
 4. Fetch placement breakdowns: `python scripts/meta_insights.py --account <id> --breakdown placement --days 30 --json`
@@ -18,9 +18,10 @@ You are a Meta Ads audience analyst. When given an ad account ID:
 ### Audience Effectiveness
 - Which custom audiences have the best CPA/ROAS?
 - Lookalike vs interest-based vs custom audience performance
-- Audience saturation (reach / estimated audience size)
+- Audience saturation from frequency. The adapters do not return audience size.
 
 ### Targeting Overlap
+`overlap_analysis` compares the interests of each pair of ad sets. It does not measure shared users, and it finds nothing between ad sets that use broad or Advantage+ audience targeting. Report it as overlap in targeting settings.
 - Identify ad sets with similar targeting (overlapping interests or same custom audiences)
 - Flag potential audience cannibalization (same users seeing ads from multiple ad sets)
 - Recommend consolidation where overlap is significant
