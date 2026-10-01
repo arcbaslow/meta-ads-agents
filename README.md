@@ -13,7 +13,7 @@ Campaign performance, creative fatigue and event health.
 
 [Quick start](#quick-start) · [Example output](#example-output) · [Tests](#tests) · [Releases](#releases) · [Contributing](CONTRIBUTING.md)
 
-A read-only Python toolkit for Facebook and Instagram advertising analysis. Retrieve Marketing API data, inspect campaign and creative performance, and combine specialist findings into reports through the `/meta-ads` agent workflow.
+A read-only Python toolkit for Facebook and Instagram advertising analysis. It reads Marketing API data, works out why ad sets stall, what changed before a metric moved and which creatives are wearing out, and combines specialist findings into reports through the `/meta-ads` agent workflow.
 
 ## What you can do
 
@@ -22,13 +22,27 @@ A read-only Python toolkit for Facebook and Instagram advertising analysis. Retr
 | Performance | Spend, purchases, revenue, ROAS, CPA, CTR and frequency at campaign, ad-set and ad level |
 | Creative | Creative metadata, metrics, and per-ad fatigue scored from frequency, CTR change and CPM drift over the period |
 | Audiences | Age, gender, geography, device and placement breakdowns |
-| Measurement | Pixel/CAPI event health and conversion-funnel checks |
+| Measurement | Pixel health, browser and Conversions API coverage per event, and conversion-funnel checks |
 | Budget | Agent analysis of utilization, pacing and bid-strategy fit |
 | Change history | Activity log lined up with each entity's metrics before and after a change |
 | Delivery | Stalled ad sets: caps below the account's real CPA, learning phase status, budgets too small for the optimisation event |
 | Reports | Markdown, HTML, PDF, CSV tables and period comparisons |
 
-The adapters retrieve data; specialist agents interpret it. The complete audit is an agent skill, not a standalone `meta_audit.py` command. Account mutation is not implemented.
+The adapters retrieve data and compute the delivery, change history and fatigue checks; specialist agents interpret the results. The complete audit is an agent skill, not a standalone `meta_audit.py` command. Account mutation is not implemented.
+
+## Next to Meta's Ads MCP server
+
+Meta ships its own [Ads MCP server](https://developers.facebook.com/documentation/ads-commerce/ads-ai-connectors/ads-mcp-server/ads-mcp-server-overview). It lists accounts and entities, runs insights queries, reads the activity log and datasets, offers benchmarks and anomaly signals, and creates and changes campaigns. This toolkit does not rebuild that. It covers the analysis the server leaves to the person running the account:
+
+| Question | Official server | This toolkit |
+| --- | --- | --- |
+| Why is this ad set not spending? | Returns the raw bid, budget and learning fields | `meta_delivery.py` compares them with the account's real cost per result |
+| What changed before this dropped? | Activity log and insights are separate tools | `meta_changes.py` lines each change up with the metrics before and after |
+| Which creatives are wearing out? | Frequency and CTR series, no score | `meta_creatives.py --fatigue` scores each ad |
+| How do conversions differ by attribution window? | No window parameter | `meta_insights.py --attribution` |
+| Can I get a report file, or diff two runs? | Conversational output | Markdown, HTML, PDF and CSV reports; sorted, stable JSON |
+
+To change anything in an account, use Ads Manager or the official server. The full comparison, with sources, is in the [roadmap](docs/ROADMAP.md).
 
 ## Installation
 
@@ -140,7 +154,13 @@ Reads the ad account activity log and daily insights, and for every change to a 
 
 ### Caching and API behavior
 
-Responses use a 15-minute JSON cache under the OS temporary directory, in `claude-meta-ads/`. Pass `--no-cache` to refresh a supported adapter query. Retryable rate-limit errors and transient connections use exponential backoff. Field availability still depends on the account, permissions and API version. Fatigue and event-health signals are heuristics to investigate, not proof of a cause.
+Responses use a 15-minute JSON cache under the OS temporary directory, in `claude-meta-ads/`. Pass `--no-cache` to refresh a query. Retryable rate-limit errors and network failures use exponential backoff.
+
+The adapters call Marketing API v26.0, set in `scripts/meta_utils.py`. Field availability still depends on the account and its permissions.
+
+A failed call exits with code 1 and prints a JSON error with an `error_kind`: `auth` (expired or revoked token), `rate_limit` (with `retry_after_minutes` when Meta reports it), `too_much_data`, `network` or `api`. Access tokens are removed from error text before it is printed, logged or cached.
+
+Fatigue, event-health and change-history signals are heuristics to investigate, not proof of a cause.
 
 ## Tests
 
@@ -149,14 +169,14 @@ python -m ruff check scripts/
 python -m pytest scripts/ -q
 ```
 
-The fixture-based suite requires no Meta account and covers auth and OAuth state validation, cache behavior, campaign and audience queries, creative scoring, event health, report formats, agent-command parsing and version consistency. CI runs Python 3.10–3.13. See the [release verification](docs/VERIFICATION.md).
+The fixture-based suite requires no Meta account and covers auth and OAuth state validation, cache behavior, campaign and audience queries, creative scoring and fatigue, event health, delivery diagnosis, change history, report formats, error output without tokens, agent-command parsing and version consistency. It also checks every field the adapters request against the installed SDK's field lists. CI runs Python 3.10–3.13. See the [release verification](docs/VERIFICATION.md).
 
 ## Repository map
 
 | Path | Purpose |
 | --- | --- |
 | [scripts/](scripts/) | Marketing API adapters, reports and tests |
-| [agents/](agents/) | Performance, creative, audience, events and other specialists |
+| [agents/](agents/) | Performance, creative, audience, events, budget, account, delivery, change history and attribution specialists |
 | [skills/](skills/) | `/meta-ads` commands and analysis reference material |
 | [examples/demo/](examples/demo/) | Synthetic report input and generated Markdown |
 | [docs/](docs/) | App setup, releases, verification and the [roadmap](docs/ROADMAP.md) |
