@@ -5,12 +5,12 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning is [semantic](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-10-01
 
 ### Added
 
 - `docs/ROADMAP.md`: a coverage table against Meta's official Ads MCP server,
-  what was fixed and built on this branch with evidence, proposals for what
+  what was fixed and built in this release with evidence, proposals for what
   comes next, rejected ideas, and open questions.
 - `meta_creatives.py --fatigue`: fatigue scored over time, per ad. The
   fatigue formula existed since 1.0.0 but no command called it, so the
@@ -187,7 +187,8 @@ Versioning is [semantic](https://semver.org/spec/v2.0.0.html).
 - Reference tables for API rate-limit tiers, vertical benchmarks, and
   ODAX campaign objectives.
 
-[Unreleased]: https://github.com/arcbaslow/meta-ads-agents/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/arcbaslow/meta-ads-agents/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.1.0
 [1.0.2]: https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.0.2
 [1.0.1]: https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.0.1
 [1.0.0]: https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.0.0

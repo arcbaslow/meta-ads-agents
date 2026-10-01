@@ -21,9 +21,9 @@ python -m twine check dist/*
 Commit and push the tested source, then choose an unused tag matching the package version. Do not move an existing release tag. The following is an example for this version; future releases must use their own version:
 
 ```bash
-git tag -a v1.0.2 -m "Release v1.0.2"
-git push origin v1.0.2
-gh release create v1.0.2 --verify-tag --title "v1.0.2" --notes-file docs/RELEASE_NOTES.md
+git tag -a v1.1.0 -m "Release v1.1.0"
+git push origin v1.1.0
+gh release create v1.1.0 --verify-tag --title "v1.1.0" --notes-file docs/RELEASE_NOTES.md
 ```
 
 Attach the reviewed source bundle and its `SHA256SUMS.txt`; attach installable package artifacts only after checking their contents and entry points. Use the README's source installation for the full agent/skill workflow.

@@ -1,6 +1,6 @@
 # Roadmap
 
-Written 2026-09-30 against v1.0.2 plus the `roadmap-work` branch. Marketing API facts were checked on that date against the pages listed under [Sources](#sources). Claims about the official Meta Ads MCP server are marked by how they were checked: [O] an official Meta page, [L] the live tool schemas of one connected session, [S] secondary coverage.
+Written 2026-09-30 against v1.0.2. The "Now" group shipped in v1.1.0. Marketing API facts were checked on that date against the pages listed under [Sources](#sources). Claims about the official Meta Ads MCP server are marked by how they were checked: [O] an official Meta page, [L] the live tool schemas of one connected session, [S] secondary coverage.
 
 ## Where this toolkit sits
 
@@ -65,29 +65,29 @@ State of `master` at `145907a` before any change:
 
 ## Now
 
-Everything in this group is done on the `roadmap-work` branch. Effort is what it took: S is under a day, M is one to three days.
+Everything in this group shipped in v1.1.0. Effort is what it took: S is under a day, M is one to three days.
 
 ### Bugs and API version work
 
 Each fix has a regression test. "Official MCP" does not apply to these: they are defects in this repo.
 
-| # | What | Why it matters | Evidence | API fields or names | Effort | Risk | Commit |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Retry set lacked 80000 (Ads Insights limit) and 613; network errors were never retried | The most common insights throttle ended a run. The SDK raises `requests` exceptions, which are not the builtin `ConnectionError` the wrapper checked | `meta_utils.py` retry set; confirmed by running `_is_retryable` on `requests.exceptions.ConnectionError`; codes from [M1][M2] | Error codes 4, 17, 613, 80000, 80003, 80004, 80014; `is_transient` | S | Low | `abab981` |
-| 2 | Campaign, ad set and ad listings, ad set targeting, pixel health and `--attribution` skipped the retry wrapper | One throttled response ended the run, although the changelog said all calls retry | Read in `meta_campaigns.py`, `meta_audiences.py`, `meta_events.py`, `meta_insights.py` | None new | S | Low | `0fa5396` |
-| 3 | Cache key collisions: `--daily` and `--attribution` shared the summary query's key; creatives ignored `--days`; events ignored `--funnel` | For 15 minutes the wrong data was returned with no warning. The budget and performance agents both hit this in one audit | Confirmed with a test that fails on the old code | None | S | Low | `755abbd` |
-| 4 | `has_capi` was false for every pixel | The report told every account that the Conversions API was not configured. The code read a `source` key that the stats edge does not return | `AdsPixelStats` has `count`, `value`, `event`, `diagnostics_hourly_last_timestamp` (SDK 26.0.2); the edge filters with `event_source` [M3] | `AdsPixel/stats`: `aggregation=event`, `event_source=WEB_ONLY` or `SERVER_ONLY` | S | Medium: response shape taken from the SDK spec, not a live call | `e15f3c2` |
-| 5 | `--health-check` never used the cache | One listing plus stats calls per pixel on every run, against the repo's own rule | Read in `meta_events.py` | None | S | Low | `24682df` |
-| 6 | Account IDs were not normalised | The README said `123` and `act_123` both work. A bare number went to the API as a different node | README "Quick start"; no normaliser existed in `scripts/` | None | S | Low | `642b055` |
-| 7 | `--compare` computed the comparison and left it out of the report | The README's comparison example wrote a report with no comparison in it | Confirmed by running the README command | None | S | Low | `b55ffdb` |
-| 8 | `--with-metrics` requested `effective_object_story_spec` on the Ad node | The field exists on neither Ad nor AdCreative. The Graph API rejects unknown fields, so the quick-start command is expected to fail on a real account | Zero occurrences in SDK 19.0.0 and 26.0.2; absent from [M4][M5]. The name came from `docs/superpowers/plans/2026-04-06-high-priority-fixes.md` | `AdCreative.object_story_spec`, `AdCreative.object_type` | S | Low | `44bb7d0` |
-| 9 | Events were compared by the wrong names | Insights returns `offsite_conversion.fb_pixel_purchase`; the code expected `Purchase`. Every event was labelled custom, the funnel had no order, and link clicks were listed as pixel events | Action type names from [M6] | `actions.action_type` | S | Low | `8f98d8e` |
-| 10 | API failures ended in a traceback with empty stdout | An agent reading stdout got nothing to act on for an expired token or a throttle | Read in every adapter's `main`; token codes from [M7], usage header from [M2] | Error 190 and 102; `X-Business-Use-Case-Usage.estimated_time_to_regain_access` | S | Low | `650d0c7` |
-| 11 | Token could only come from the credentials file | `CLAUDE.md` says tokens come from the environment. Nothing read it, so CI and scheduled runs needed a token on disk | `meta_auth.py` | None | S | Low | `4efd32f` |
-| 12 | SDK crash reporter was on | On an unhandled SDK error the SDK posts the call stack to Meta. `SECURITY.md` says nothing is sent anywhere | `facebook_business/crashreporter.py`, enabled by `FacebookAdsApi.init(crash_log=True)` | None | S | Low | `05086c5` |
-| 13 | API version floated; OAuth URLs hardcoded v21.0; dependency allowed dead SDKs | `facebook-business>=19.0.0` allowed releases whose default Marketing API version has expired. v24.0 expires 2026-10-06. v26.0 is current [M8][M9] | `pyproject.toml`, `meta_auth.py` | `API_VERSION = "v26.0"`; `facebook-business>=26.0.0,<27` | S | Medium: v26.0 behaviour was checked against the changelog and SDK field lists, not a live account | `74100d3` |
-| 14 | Docs and agents had drifted from the code | `CLAUDE.md` and `SETUP.md` used the old project name; the rate limit reference listed tiers and an HTTP 429 that Meta does not use; two agents never called the queries their analysis needs | Rate limits from [M1][M2] | None | S | Low | `13ad940` |
-| 15 | Network errors exposed the access token | A `requests` error message quotes the request URL, and the SDK sends the token as a URL parameter. An unreachable API printed the token in the traceback, and the retry warning added in item 1 would have logged it | Confirmed by raising a `requests` timeout against a closed local port: the message held the full query string | None | S | Low | `d828388` |
+| # | What | Why it matters | Evidence | API fields or names | Effort | Risk |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Retry set lacked 80000 (Ads Insights limit) and 613; network errors were never retried | The most common insights throttle ended a run. The SDK raises `requests` exceptions, which are not the builtin `ConnectionError` the wrapper checked | `meta_utils.py` retry set; confirmed by running `_is_retryable` on `requests.exceptions.ConnectionError`; codes from [M1][M2] | Error codes 4, 17, 613, 80000, 80003, 80004, 80014; `is_transient` | S | Low |
+| 2 | Campaign, ad set and ad listings, ad set targeting, pixel health and `--attribution` skipped the retry wrapper | One throttled response ended the run, although the changelog said all calls retry | Read in `meta_campaigns.py`, `meta_audiences.py`, `meta_events.py`, `meta_insights.py` | None new | S | Low |
+| 3 | Cache key collisions: `--daily` and `--attribution` shared the summary query's key; creatives ignored `--days`; events ignored `--funnel` | For 15 minutes the wrong data was returned with no warning. The budget and performance agents both hit this in one audit | Confirmed with a test that fails on the old code | None | S | Low |
+| 4 | `has_capi` was false for every pixel | The report told every account that the Conversions API was not configured. The code read a `source` key that the stats edge does not return | `AdsPixelStats` has `count`, `value`, `event`, `diagnostics_hourly_last_timestamp` (SDK 26.0.2); the edge filters with `event_source` [M3] | `AdsPixel/stats`: `aggregation=event`, `event_source=WEB_ONLY` or `SERVER_ONLY` | S | Medium: response shape taken from the SDK spec, not a live call |
+| 5 | `--health-check` never used the cache | One listing plus stats calls per pixel on every run, against the repo's own rule | Read in `meta_events.py` | None | S | Low |
+| 6 | Account IDs were not normalised | The README said `123` and `act_123` both work. A bare number went to the API as a different node | README "Quick start"; no normaliser existed in `scripts/` | None | S | Low |
+| 7 | `--compare` computed the comparison and left it out of the report | The README's comparison example wrote a report with no comparison in it | Confirmed by running the README command | None | S | Low |
+| 8 | `--with-metrics` requested `effective_object_story_spec` on the Ad node | The field exists on neither Ad nor AdCreative. The Graph API rejects unknown fields, so the quick-start command is expected to fail on a real account | Zero occurrences in SDK 19.0.0 and 26.0.2; absent from [M4][M5]. The name came from `docs/superpowers/plans/2026-04-06-high-priority-fixes.md` | `AdCreative.object_story_spec`, `AdCreative.object_type` | S | Low |
+| 9 | Events were compared by the wrong names | Insights returns `offsite_conversion.fb_pixel_purchase`; the code expected `Purchase`. Every event was labelled custom, the funnel had no order, and link clicks were listed as pixel events | Action type names from [M6] | `actions.action_type` | S | Low |
+| 10 | API failures ended in a traceback with empty stdout | An agent reading stdout got nothing to act on for an expired token or a throttle | Read in every adapter's `main`; token codes from [M7], usage header from [M2] | Error 190 and 102; `X-Business-Use-Case-Usage.estimated_time_to_regain_access` | S | Low |
+| 11 | Token could only come from the credentials file | `CLAUDE.md` says tokens come from the environment. Nothing read it, so CI and scheduled runs needed a token on disk | `meta_auth.py` | None | S | Low |
+| 12 | SDK crash reporter was on | On an unhandled SDK error the SDK posts the call stack to Meta. `SECURITY.md` says nothing is sent anywhere | `facebook_business/crashreporter.py`, enabled by `FacebookAdsApi.init(crash_log=True)` | None | S | Low |
+| 13 | API version floated; OAuth URLs hardcoded v21.0; dependency allowed dead SDKs | `facebook-business>=19.0.0` allowed releases whose default Marketing API version has expired. v24.0 expires 2026-10-06. v26.0 is current [M8][M9] | `pyproject.toml`, `meta_auth.py` | `API_VERSION = "v26.0"`; `facebook-business>=26.0.0,<27` | S | Medium: v26.0 behaviour was checked against the changelog and SDK field lists, not a live account |
+| 14 | Docs and agents had drifted from the code | `CLAUDE.md` and `SETUP.md` used the old project name; the rate limit reference listed tiers and an HTTP 429 that Meta does not use; two agents never called the queries their analysis needs | Rate limits from [M1][M2] | None | S | Low |
+| 15 | Network errors exposed the access token | A `requests` error message quotes the request URL, and the SDK sends the token as a URL parameter. An unreachable API printed the token in the traceback, and the retry warning added in item 1 would have logged it | Confirmed by raising a `requests` timeout against a closed local port: the message held the full query string | None | S | Low |
 
 A test added with item 8, `scripts/test_requested_fields.py`, runs every fetch function against a recording stand-in and fails when a requested field is missing from the installed SDK's field list for that object. It turns the "verify field names" rule in `CONTRIBUTING.md` into a check.
 
@@ -101,7 +101,6 @@ A test added with item 8, `scripts/test_requested_fields.py`, runs every fetch f
 - **Evidence:** Learning phase needs about 50 optimisation events in the 7 days after the last significant edit [H1][H2]. `learning_stage_info.status` values `LEARNING`, `SUCCESS`, `FAIL` [M10]. Whole-unit currencies [M11].
 - **API fields:** AdSet `effective_status`, `bid_strategy`, `bid_amount`, `daily_budget`, `lifetime_budget`, `budget_remaining`, `optimization_goal`, `promoted_object`, `learning_stage_info`, `issues_info`, `start_time`, `end_time`; Campaign `daily_budget`, `lifetime_budget`, `budget_remaining`, `bid_strategy`, `start_time`, `stop_time`; AdAccount `currency`; insights `spend`, `impressions`, `actions` at ad set level.
 - **Effort:** M. **Risk:** Medium. The reference CPA uses the API's default attribution. Optimisation events without an insights action type are not evaluated. Minimum ROAS bidding is not checked. No live account was used.
-- **Commit:** `6a99403`.
 
 #### Change history correlated with performance (`meta_changes.py`, `/meta-ads changes`)
 
@@ -111,7 +110,6 @@ A test added with item 8, `scripts/test_requested_fields.py`, runs every fetch f
 - **Evidence:** Activity fields and the one-week default window [M12]. Borrowed from change-history tools in gomarble and the change-point idea in fortytwode [G1][G2].
 - **API fields:** `AdAccount/activities`: `event_time`, `event_type`, `translated_event_type`, `object_id`, `object_name`, `object_type`, `actor_name`, `application_name`, `extra_data`, with `since` and `until`; insights `campaign_id`, `adset_id`, `ad_id`, `spend`, `impressions`, `clicks`, `actions` with `time_increment=1`.
 - **Effort:** M. **Risk:** Medium. It is a before and after comparison and proves no cause. Log times are UTC and insights days are in the account time zone. How far back the log goes is not documented.
-- **Commit:** `c32d682`.
 
 #### Creative fatigue scored over time (`meta_creatives.py --fatigue`)
 
@@ -121,7 +119,6 @@ A test added with item 8, `scripts/test_requested_fields.py`, runs every fetch f
 - **Evidence:** `fatigue_score` in `meta_creatives.py` had no caller. Thresholds are the ones in `agents/meta-creative.md` since 1.0.0. The impression gate follows the spend-gate idea in [G3].
 - **API fields:** insights at ad level: `ad_id`, `ad_name`, `adset_id`, `campaign_id`, `spend`, `impressions`, `clicks`, `reach`, `frequency`.
 - **Effort:** S. **Risk:** Medium. The thresholds are practitioner rules, not Meta guidance. They are reported with the numbers behind them so the reader can disagree.
-- **Commit:** `b9e3f94`.
 
 ## Next
 
@@ -255,8 +252,12 @@ Behaviour that may be intended. The code was left alone.
 9. **Skill versions.** Every `SKILL.md` says `version: "1.0.0"` while the package is 1.0.2. Unknown whether skills are versioned separately.
 10. **Old plan file.** `docs/superpowers/plans/2026-04-06-high-priority-fixes.md` is where the nonexistent `effective_object_story_spec` field came from. Keep as history or remove?
 11. **Dead code.** `extract_conversions` (`meta_insights.py:62`) has no caller.
-12. **Audit size.** The audit skill now starts seven core agents. The delivery agent makes four cached calls. Drop it from the audit if that is too much.
-13. **Dependency cap.** `facebook-business>=26.0.0,<27` keeps the SDK and `API_VERSION` moving together in one deliberate commit. Dependabot will propose the next major when it ships.
+## Decided
+
+Owner decisions, 2026-10-01:
+
+- The delivery agent stays in the full audit. The audit skill starts seven core agents.
+- `facebook-business>=26.0.0,<27` is accepted. The SDK major and `API_VERSION` move together in one commit.
 
 ## Could not verify
 

@@ -163,7 +163,7 @@ The fixture-based suite requires no Meta account and covers auth and OAuth state
 
 ## Releases
 
-**[v1.0.2](https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.0.2)** — see the [release notes](docs/RELEASE_NOTES.md) for this release and the [changelog](CHANGELOG.md) for project history.
+**[v1.1.0](https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.1.0)** — see the [release notes](docs/RELEASE_NOTES.md) for this release and the [changelog](CHANGELOG.md) for project history.
 
 GitHub Releases include downloadable artifacts and checksums. Package-registry publication is a separate, opt-in workflow; a GitHub release does not imply that the same version is available on PyPI or npm. Maintainers can follow the [release guide](docs/RELEASING.md).
 
