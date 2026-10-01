@@ -1,23 +1,53 @@
-# Meta Ads Agents v1.0.2
+# Meta Ads Agents v1.1.0
 
-Release date: 2026-09-08
+Release date: 2026-10-01
 
-This release makes installation, supported workflows and example output easier to verify from the repository front page.
+This release fixes defects in the adapters, moves to Marketing API v26.0, and adds three read-only analyses that Meta's official Ads MCP server does not provide. The [changelog](../CHANGELOG.md) has every entry. The [roadmap](ROADMAP.md) has the evidence for each and what is proposed next.
 
-## Included
+## Added
 
-- Rewritten GitHub README with a clear capability table, source installation, quick start, tested commands and links to related tools.
-- Project-specific SVG banner and icon, plus a real output screenshot generated from synthetic fixtures.
-- Reproducible offline examples, an explicit test section and maintainer release instructions.
-- Clarified that the full audit runs through an agent skill, while individual adapters run directly from Python.
-- Documented the assembled report-input schema, report formats, account IDs and caching.
-- Fixed distribution packaging: the wheel now includes all eight Python adapters instead of metadata only.
+- `meta_delivery.py` and `/meta-ads delivery`: diagnosis of stalled delivery. It flags ad sets with issues Meta reports, no impressions or underspend, and checks whether a bid or cost cap is below the account's cost per optimisation event, whether the ad set is learning limited, and whether a week of budget buys fewer events than the learning phase needs.
+- `meta_changes.py` and `/meta-ads changes`: the ad account activity log lined up with each entity's metrics before and after every change.
+- `meta_creatives.py --fatigue`: per-ad fatigue score, status and rotation recommendation from frequency, CTR change and CPM drift over the period.
+- `META_ACCESS_TOKEN`: the adapters run from an environment token with nothing stored on disk.
+- `docs/ROADMAP.md`.
+
+## Changed
+
+- Marketing API v26.0, set in `meta_utils.API_VERSION`. The dependency is `facebook-business>=26.0.0,<27`. Earlier ranges allowed SDK releases whose default API version has expired.
+- The SDK crash reporter is off.
+- The full audit starts seven core agents. The delivery agent is the seventh.
+
+## Fixed
+
+- `--health-check` reported no Conversions API for every pixel. Fixed, and it now lists browser and server counts per event.
+- `--with-metrics` requested a field the Ad node does not have.
+- `--daily` and `--attribution` could return each other's cached data.
+- `--compare` left the comparison out of the report it wrote.
+- Event classification and the funnel used names that never matched the API's.
+- Error 80000, error 613 and network errors were not retried, and several calls skipped the retry wrapper.
+- API and network errors print a JSON error object. A network error no longer exposes the access token.
+- Bare account numbers are accepted, as the README said.
+
+## Upgrading
+
+Reinstall so that the SDK matches the pinned API version:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Output changes to be aware of:
+
+- `meta_events.py` event lists contain website pixel events only, under their standard names. Link clicks and other engagement actions are no longer listed.
+- `has_capi` can be `null` when the pixel stats call fails.
+- A failed API call exits 1 with a JSON error on stdout instead of a traceback.
 
 ## Validation
 
-124 tests passed. Ruff passed.
+271 tests passed. Ruff passed.
 
-Local validation used Windows and Python 3.12.14 (Node 24 for GTM Diff). The [verification record](VERIFICATION.md) lists the checks and their scope. The repository's CI matrix provides the other supported runtime/OS checks. No live ad account, analytics property, Figma file, AI call or external account write was used for the examples.
+Local validation used Windows and Python 3.12.10. The [verification record](VERIFICATION.md) lists the checks and their scope. The repository's CI matrix covers Python 3.10 to 3.13. Tests use mocks and fixtures. No live ad account was used, so the new analyses and the Conversions API fix are verified against the SDK's field lists and Meta's documentation, not against live responses.
 
 ## Downloads
 
