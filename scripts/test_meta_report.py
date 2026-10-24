@@ -1,6 +1,10 @@
+import copy
+import csv
+import html
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 import meta_report
 
@@ -14,7 +18,8 @@ SAMPLE_DATA = {
         "revenue": 438338.0,
         "roas": 141.2,
         "cpa": 0.28,
-        "reach": 869953,
+        "period_reach": 869953,
+        "rows": 2,
     },
     "campaigns": [
         {"name": "Campaign A", "spend": 1069, "purchases": 5212, "revenue": 212835,
@@ -83,8 +88,32 @@ class TestMarkdownGeneration(unittest.TestCase):
         md = meta_report.generate_markdown(SAMPLE_DATA)
         self.assertIn("Active", md)
 
+    def test_summary_uses_period_reach_without_row_counts(self):
+        md = meta_report.generate_markdown(SAMPLE_DATA)
+        self.assertIn("| Period reach | 869,953 |", md)
+        self.assertNotIn("| Rows |", md)
+
+    def test_missing_reach_is_explained_without_a_zero(self):
+        data = copy.deepcopy(SAMPLE_DATA)
+        del data["summary"]["period_reach"]
+        note = "Reach is not additive across entities or days; account-level period reach was not fetched."
+        data["summary"]["reach_note"] = note
+        md = meta_report.generate_markdown(data)
+        self.assertNotIn("| Period reach |", md)
+        self.assertIn(note, meta_report.generate_html(md, data))
+
 
 class TestPDFGeneration(unittest.TestCase):
+    def test_pdf_consumes_escaped_html(self):
+        payload = '<script>alert("x")</script><img src=x onerror=alert(1)>'
+        with tempfile.TemporaryDirectory() as tmpdir, \
+                mock.patch("fpdf.FPDF.write_html", autospec=True) as write_html:
+            meta_report.generate_pdf("# " + payload, os.path.join(tmpdir, "test.pdf"))
+        rendered = write_html.call_args.args[1]
+        self.assertIn(html.escape(payload, quote=True), rendered)
+        self.assertNotIn("<script", rendered)
+        self.assertNotIn("<img", rendered)
+
     def test_generate_pdf_creates_file(self):
         md = meta_report.generate_markdown(SAMPLE_DATA)
         tmpdir = tempfile.mkdtemp()
@@ -94,6 +123,29 @@ class TestPDFGeneration(unittest.TestCase):
         self.assertGreater(os.path.getsize(path), 100)
 
 class TestHTMLGeneration(unittest.TestCase):
+    def test_account_and_campaign_names_are_escaped(self):
+        payload = '<script>alert("x")</script><img src=x onerror=alert(1)>'
+        data = copy.deepcopy(SAMPLE_DATA)
+        data["account_name"] = payload
+        data["campaigns"][0]["name"] = payload
+        rendered = meta_report.generate_html(meta_report.generate_markdown(data), data)
+        escaped = html.escape(payload, quote=True)
+        self.assertIn(f"<td>{escaped}</td>", rendered)
+        self.assertIn(f"{escaped}</title>", rendered)
+        self.assertNotIn("<script", rendered)
+        self.assertNotIn("<img", rendered)
+
+    def test_all_text_nodes_are_escaped_and_bold_still_works(self):
+        payload = '<img src=x onerror="alert(1)"> & text'
+        escaped = html.escape(payload, quote=True)
+        md = "\n".join([f"# {payload}", f"## {payload}", f"### {payload}",
+                        f"**{payload}**", f"- {payload}", payload,
+                        f"| {payload} |", "| --- |", f"| {payload} |"])
+        rendered = meta_report.generate_html(md)
+        for tag in ("h1", "h2", "h3", "strong", "li", "p", "th", "td"):
+            self.assertIn(f"<{tag}>{escaped}</{tag}>", rendered)
+        self.assertNotIn("<img", rendered)
+
     def test_generate_html_contains_structure(self):
         md = meta_report.generate_markdown(SAMPLE_DATA)
         html = meta_report.generate_html(md, SAMPLE_DATA)
@@ -130,6 +182,32 @@ class TestHTMLGeneration(unittest.TestCase):
         self.assertIn("<!DOCTYPE html>", content)
 
 class TestCSVExport(unittest.TestCase):
+    def test_formula_prefixes_are_neutralized_in_every_string_cell(self):
+        for prefix in ("=", "+", "-", "@", "\t", "\r"):
+            with self.subTest(prefix=prefix), tempfile.TemporaryDirectory() as tmpdir:
+                data = copy.deepcopy(SAMPLE_DATA)
+                for section in ("campaigns", "creatives", "placements"):
+                    for row in data[section]:
+                        for key in row:
+                            row[key] = prefix + "1+1"
+                        row["spend"] = -12.5
+                files = meta_report.generate_csv(data, tmpdir)
+                for path in files.values():
+                    with open(path, newline="", encoding="utf-8") as f:
+                        for row in csv.DictReader(f):
+                            self.assertEqual(row.pop("spend"), "-12.5")
+                            self.assertTrue(all(value == "'" + prefix + "1+1" for value in row.values()))
+
+    def test_safe_strings_and_empty_strings_are_preserved(self):
+        data = {"creatives": [{"name": "Ordinary name", "format": "", "fatigue": "ok"}]}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = meta_report.generate_csv(data, tmpdir)["creatives"]
+            with open(path, newline="", encoding="utf-8") as f:
+                row = next(csv.DictReader(f))
+        self.assertEqual(row["name"], "Ordinary name")
+        self.assertEqual(row["format"], "")
+        self.assertEqual(row["fatigue"], "ok")
+
     def test_csv_creates_campaign_file(self):
         tmpdir = tempfile.mkdtemp()
         files = meta_report.generate_csv(SAMPLE_DATA, tmpdir)
@@ -165,7 +243,7 @@ PREVIOUS_DATA = {
         "revenue": 350000.0,
         "roas": 125.0,
         "cpa": 0.31,
-        "reach": 750000,
+        "period_reach": 750000,
     },
     "campaigns": [
         {"name": "Campaign A", "spend": 900, "purchases": 4000, "revenue": 180000,
@@ -177,6 +255,49 @@ PREVIOUS_DATA = {
 
 
 class TestComparison(unittest.TestCase):
+    def test_legacy_reach_is_explained_in_summary_and_comparison(self):
+        legacy = copy.deepcopy(SAMPLE_DATA)
+        del legacy["summary"]["period_reach"]
+        legacy["summary"]["reach"] = 654321
+        note = "Older summed reach is not shown because reach is not additive."
+        md = meta_report.generate_markdown(legacy)
+        self.assertEqual(md.count(note), 1)
+        self.assertNotIn("| Period reach |", md)
+        self.assertNotIn("654,321", md)
+        self.assertIn(note, meta_report.generate_html(md, legacy))
+        for current, previous in ((SAMPLE_DATA, legacy), (legacy, SAMPLE_DATA), (legacy, legacy)):
+            with self.subTest(current=current, previous=previous):
+                comparison = meta_report.generate_comparison(current, previous)
+                self.assertEqual(comparison["reach_note"], note)
+                self.assertNotIn("period_reach", comparison["metrics"])
+                self.assertNotIn("reach", comparison["metrics"])
+                rendered = "\n".join(meta_report.comparison_markdown(comparison))
+                self.assertIn(note, rendered)
+                self.assertNotIn("| Period reach |", rendered)
+
+    def test_comparison_uses_period_reach(self):
+        comparison = meta_report.generate_comparison(SAMPLE_DATA, PREVIOUS_DATA)
+        self.assertEqual(comparison["metrics"]["period_reach"]["change"], 119953)
+        self.assertIn("| Period reach | 869,953 | 750,000 | +16.0% |",
+                      "\n".join(meta_report.comparison_markdown(comparison)))
+
+    def test_comparison_omits_unavailable_reach(self):
+        previous = copy.deepcopy(PREVIOUS_DATA)
+        del previous["summary"]["period_reach"]
+        previous["summary"]["reach_note"] = "Period reach was not fetched."
+        for current, prior in ((SAMPLE_DATA, previous), (previous, SAMPLE_DATA)):
+            with self.subTest(current=current, previous=prior):
+                comparison = meta_report.generate_comparison(current, prior)
+                self.assertEqual(
+                    comparison["reach_note"],
+                    "Period reach is not compared because it was not fetched for one of the periods.",
+                )
+                self.assertNotIn("period_reach", comparison["metrics"])
+                self.assertNotIn("reach", comparison["metrics"])
+                rendered = "\n".join(meta_report.comparison_markdown(comparison))
+                self.assertEqual(rendered.count(comparison["reach_note"]), 1)
+                self.assertNotIn("| Period reach |", rendered)
+
     def test_comparison_has_metric_deltas(self):
         result = meta_report.generate_comparison(SAMPLE_DATA, PREVIOUS_DATA)
         self.assertIn("metrics", result)

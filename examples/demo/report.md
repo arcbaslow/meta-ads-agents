@@ -10,7 +10,7 @@
 | Revenue | $16,800.00 |
 | ROAS | 4.0x |
 | CPA | $30.00 |
-| Reach | 95,000 |
+| Period reach | 95,000 |
 
 ## Campaign performance
 

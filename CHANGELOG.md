@@ -7,8 +7,14 @@ Versioning is [semantic](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Escape report HTML and PDF text and neutralize formula prefixes in CSV string cells.
+- Fetch account-level period reach instead of summing reach, and label row counts as rows.
+
 ### Changed
 
+- Remove `summary.total_reach` in favour of `summary.period_reach` plus `summary.reach_note`; replace `summary.days` with `summary.rows`; rename report input `summary.reach` to `summary.period_reach`.
 - README: a section on where the toolkit sits next to Meta's official Ads MCP
   server, the API version and error output under "Caching and API behavior",
   and an updated list of what the tests cover.

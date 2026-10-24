@@ -29,7 +29,7 @@ Categorize each campaign:
 - **Inactive**: No spend in the analysis period
 
 ### Key Metrics to Report
-- Total spend, impressions, reach, clicks
+- Total spend, impressions, period reach, clicks; reach is not summed across campaigns
 - CTR, CPC, CPM
 - Conversions, CPA, ROAS (if conversion data exists)
 - Frequency (account-wide and per campaign)
