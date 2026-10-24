@@ -2,6 +2,7 @@
 """Generate markdown and PDF reports from Meta Ads analysis data."""
 
 import argparse
+import html
 import json
 import os
 from datetime import date
@@ -38,13 +39,15 @@ def md_table(headers, rows):
     return "\n".join(lines)
 
 
+_LEGACY_REACH_NOTE = "Older summed reach is not shown because reach is not additive."
+
 _COMPARISON_METRICS = [
     ("spend", "Spend", fmt_money),
     ("purchases", "Purchases", fmt_num),
     ("revenue", "Revenue", fmt_money),
     ("roas", "ROAS", lambda v: f"{v:.1f}x"),
     ("cpa", "CPA", fmt_money),
-    ("reach", "Reach", fmt_num),
+    ("period_reach", "Period reach", fmt_num),
 ]
 
 
@@ -70,6 +73,8 @@ def comparison_markdown(comparison):
                      _fmt_change_pct(delta)])
     lines.append(md_table(["Metric", "Current", "Previous", "Change"], rows))
     lines.append("")
+    if comparison.get("reach_note"):
+        lines.append(comparison["reach_note"] + "\n")
 
     campaigns = comparison.get("campaigns", [])
     if campaigns:
@@ -109,9 +114,14 @@ def generate_markdown(report_data):
         summary_rows.append(["Revenue", fmt_money(s.get("revenue", 0))])
         summary_rows.append(["ROAS", f"{s.get('roas', 0):.1f}x"])
         summary_rows.append(["CPA", fmt_money(s.get("cpa", 0))])
-        summary_rows.append(["Reach", fmt_num(s.get("reach", 0))])
+        if "period_reach" in s:
+            summary_rows.append(["Period reach", fmt_num(s["period_reach"])])
     lines.append(md_table(["Metric", "Value"], summary_rows))
     lines.append("")
+    if "period_reach" not in s and "reach" in s:
+        lines.append(_LEGACY_REACH_NOTE + "\n")
+    elif s.get("reach_note"):
+        lines.append(s["reach_note"] + "\n")
 
     # Period comparison (present when the report was run with --compare)
     comparison = report_data.get("comparison")
@@ -252,48 +262,12 @@ def generate_pdf(markdown_text, output_path):
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    for line in markdown_text.split("\n"):
-        stripped = line.strip()
-
-        if stripped.startswith("# ") and not stripped.startswith("## "):
-            pdf.set_font("Helvetica", "B", 16)
-            pdf.cell(0, 10, _sanitize(stripped[2:]), new_x="LMARGIN", new_y="NEXT")
-        elif stripped.startswith("## "):
-            pdf.ln(4)
-            pdf.set_font("Helvetica", "B", 13)
-            pdf.cell(0, 8, _sanitize(stripped[3:]), new_x="LMARGIN", new_y="NEXT")
-        elif stripped.startswith("### "):
-            pdf.ln(2)
-            pdf.set_font("Helvetica", "B", 11)
-            pdf.cell(0, 7, _sanitize(stripped[4:]), new_x="LMARGIN", new_y="NEXT")
-        elif stripped.startswith("**") and stripped.endswith("**"):
-            pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(0, 6, _sanitize(stripped.strip("*")), new_x="LMARGIN", new_y="NEXT")
-        elif stripped.startswith("|") and "---" not in stripped:
-            # Table row
-            cells = [c.strip() for c in stripped.split("|")[1:-1]]
-            pdf.set_font("Helvetica", "", 8)
-            col_w = (pdf.w - 20) / max(len(cells), 1)
-            for cell in cells:
-                pdf.cell(col_w, 5, _sanitize(cell), border=1)
-            pdf.ln()
-        elif stripped.startswith("- "):
-            pdf.set_font("Helvetica", "", 10)
-            pdf.cell(5)
-            pdf.cell(0, 6, _sanitize(stripped), new_x="LMARGIN", new_y="NEXT")
-        elif stripped:
-            pdf.set_font("Helvetica", "", 10)
-            pdf.cell(0, 6, _sanitize(stripped), new_x="LMARGIN", new_y="NEXT")
-
+    pdf.set_font("Helvetica", "", 10)
+    pdf.write_html(_sanitize(_markdown_to_html(markdown_text)))
     pdf.output(output_path)
 
 
-def generate_html(markdown_text, report_data=None):
-    """Convert markdown report to a styled, standalone HTML page."""
-    name = ""
-    if report_data:
-        name = report_data.get("account_name", report_data.get("account_id", ""))
-
+def _markdown_to_html(markdown_text):
     # Convert markdown tables and headings to HTML manually
     html_body_lines = []
     in_table = False
@@ -313,10 +287,10 @@ def generate_html(markdown_text, report_data=None):
                 in_table = True
                 table_rows = []
                 # First row = header
-                header_html = "".join(f"<th>{c}</th>" for c in cells)
+                header_html = "".join(f"<th>{html.escape(c, quote=True)}</th>" for c in cells)
                 table_rows.append(f"<thead><tr>{header_html}</tr></thead><tbody>")
             else:
-                row_html = "".join(f"<td>{c}</td>" for c in cells)
+                row_html = "".join(f"<td>{html.escape(c, quote=True)}</td>" for c in cells)
                 table_rows.append(f"<tr>{row_html}</tr>")
             continue
 
@@ -329,24 +303,32 @@ def generate_html(markdown_text, report_data=None):
 
         # Headings
         if stripped.startswith("# ") and not stripped.startswith("## "):
-            html_body_lines.append(f"<h1>{stripped[2:]}</h1>")
+            html_body_lines.append(f"<h1>{html.escape(stripped[2:], quote=True)}</h1>")
         elif stripped.startswith("## "):
-            html_body_lines.append(f"<h2>{stripped[3:]}</h2>")
+            html_body_lines.append(f"<h2>{html.escape(stripped[3:], quote=True)}</h2>")
         elif stripped.startswith("### "):
-            html_body_lines.append(f"<h3>{stripped[4:]}</h3>")
+            html_body_lines.append(f"<h3>{html.escape(stripped[4:], quote=True)}</h3>")
         elif stripped.startswith("**") and stripped.endswith("**"):
-            html_body_lines.append(f"<p><strong>{stripped.strip('*')}</strong></p>")
+            html_body_lines.append(f"<p><strong>{html.escape(stripped.strip('*'), quote=True)}</strong></p>")
         elif stripped.startswith("- "):
-            html_body_lines.append(f"<li>{stripped[2:]}</li>")
+            html_body_lines.append(f"<li>{html.escape(stripped[2:], quote=True)}</li>")
         elif stripped:
-            html_body_lines.append(f"<p>{stripped}</p>")
+            html_body_lines.append(f"<p>{html.escape(stripped, quote=True)}</p>")
 
     # Close any remaining table
     if in_table:
         table_rows.append("</tbody>")
         html_body_lines.append(f'<table>{"".join(table_rows)}</table>')
 
-    body = "\n".join(html_body_lines)
+    return "\n".join(html_body_lines)
+
+
+def generate_html(markdown_text, report_data=None):
+    """Convert markdown report to a styled, standalone HTML page."""
+    name = ""
+    if report_data:
+        name = html.escape(report_data.get("account_name", report_data.get("account_id", "")), quote=True)
+    body = _markdown_to_html(markdown_text)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -454,6 +436,11 @@ def write_file(path, content):
         f.write(content)
 
 
+def _csv_safe_row(row):
+    return {key: "'" + value if isinstance(value, str) and value.startswith(("=", "+", "-", "@", "\t", "\r"))
+            else value for key, value in row.items()}
+
+
 def generate_csv(report_data, output_dir):
     """Export report data as CSV files (one per section).
 
@@ -471,7 +458,7 @@ def generate_csv(report_data, output_dir):
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=["name", "spend", "purchases", "revenue", "roas", "cpa", "ctr", "cpm"])
             writer.writeheader()
-            writer.writerows(campaigns)
+            writer.writerows(_csv_safe_row(row) for row in campaigns)
         files["campaigns"] = os.path.abspath(path)
 
     # Creatives
@@ -481,7 +468,7 @@ def generate_csv(report_data, output_dir):
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=["name", "format", "spend", "ctr", "cpa", "frequency", "fatigue"])
             writer.writeheader()
-            writer.writerows(creatives)
+            writer.writerows(_csv_safe_row(row) for row in creatives)
         files["creatives"] = os.path.abspath(path)
 
     # Placements
@@ -491,7 +478,7 @@ def generate_csv(report_data, output_dir):
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=["name", "spend", "purchases", "cpa", "roas"])
             writer.writeheader()
-            writer.writerows(placements)
+            writer.writerows(_csv_safe_row(row) for row in placements)
         files["placements"] = os.path.abspath(path)
 
     return files
@@ -521,9 +508,16 @@ def generate_comparison(current_data, previous_data):
             "revenue": _delta(cur_s, prev_s, "revenue", as_pct=True),
             "roas": _delta(cur_s, prev_s, "roas", as_pct=True),
             "cpa": _delta(cur_s, prev_s, "cpa", as_pct=True),
-            "reach": _delta(cur_s, prev_s, "reach", as_pct=True),
         },
     }
+    if "period_reach" in cur_s and "period_reach" in prev_s:
+        comparison["metrics"]["period_reach"] = _delta(cur_s, prev_s, "period_reach", as_pct=True)
+    elif any("reach" in s for s in (cur_s, prev_s)):
+        comparison["reach_note"] = _LEGACY_REACH_NOTE
+    elif any("period_reach" in s for s in (cur_s, prev_s)):
+        comparison["reach_note"] = (
+            "Period reach is not compared because it was not fetched for one of the periods."
+        )
 
     # Campaign-level comparison
     cur_campaigns = {c["name"]: c for c in current_data.get("campaigns", [])}

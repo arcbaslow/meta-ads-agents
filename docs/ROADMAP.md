@@ -194,7 +194,7 @@ Proposals. None of these is built.
 ### Page size and large accounts
 
 - **What:** Pass `limit` on the insights, creative and audience listings, and move breakdown and ad-level queries to asynchronous report runs with split-on-failure when a synchronous call returns "too much data".
-- **Why:** `fetch_insights` (`meta_insights.py:131`), `fetch_creatives` (`meta_creatives.py:218`) and `fetch_custom_audiences` (`meta_audiences.py:68`) pass no `limit`, so each page holds the API default and a large account costs many calls. Campaign listings already pass 500.
+- **Why:** `fetch_insights` (`meta_insights.py:137`), `fetch_creatives` (`meta_creatives.py:218`) and `fetch_custom_audiences` (`meta_audiences.py:68`) pass no `limit`, so each page holds the API default and a large account costs many calls. Campaign listings already pass 500.
 - **Evidence:** Airbyte's async job manager [G8].
 - **Effort:** S for `limit`, M to L for asynchronous jobs. **Risk:** Medium.
 
@@ -242,8 +242,8 @@ Proposals. None of these is built.
 Behaviour that may be intended. The code was left alone.
 
 1. **Status filter.** `meta_campaigns.py:51`, `:68`, `:83` filter with `filtering` on the field `status`. The edges document an `effective_status` parameter. Whether `status` is accepted as a filtering field was not verified. `meta_delivery.py` uses `effective_status`.
-2. **Date range includes today.** `compute_date_range` (`meta_insights.py:32`) returns `days + 1` dates ending today, and the tests assert it. Today is partial, so period totals and comparisons are low. The new modules use complete days ending yesterday.
-3. **Summary labels.** `aggregate_metrics` sums `reach` across rows (`meta_insights.py:44`), which overstates unique reach, and reports the number of rows as `days` (`:58`).
+2. **Date range includes today.** `compute_date_range` (`meta_insights.py:33`) returns `days + 1` dates ending today, and the tests assert it. Today is partial, so period totals and comparisons are low. The new modules use complete days ending yesterday.
+3. **Summary labels.** Resolved: fetch account-level period reach instead of summing reach, and replace `days` with `rows` in the JSON summary.
 4. **Funnel tail.** `build_funnel` appends events that are not funnel steps after Purchase, with drop-off figures (`meta_events.py:105`).
 5. **OAuth scopes.** `meta_auth.py:23` requests `ads_management`, `read_insights` and `business_management`. The toolkit is read-only, and `read_insights` is a Pages permission. `ads_read` may be enough.
 6. **App secret on the command line.** `--app-secret` (`meta_auth.py:335`) ends up in shell history, which `SECURITY.md` lists as in scope.
@@ -251,7 +251,7 @@ Behaviour that may be intended. The code was left alone.
 8. **Benchmarks file.** `skills/meta-ads/references/benchmarks.md` lists CTR, CPC, CPM, CPA and ROAS by vertical with no source. The official server has a benchmark tool backed by Meta's data.
 9. **Skill versions.** Every `SKILL.md` says `version: "1.0.0"` while the package is 1.0.2. Unknown whether skills are versioned separately.
 10. **Old plan file.** `docs/superpowers/plans/2026-04-06-high-priority-fixes.md` is where the nonexistent `effective_object_story_spec` field came from. Keep as history or remove?
-11. **Dead code.** `extract_conversions` (`meta_insights.py:62`) has no caller.
+11. **Dead code.** `extract_conversions` (`meta_insights.py:66`) has no caller.
 ## Decided
 
 Owner decisions, 2026-10-01:

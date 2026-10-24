@@ -2,6 +2,7 @@
 """Fetch Meta Ads insights: metrics with breakdowns and time series."""
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import date, timedelta
@@ -36,27 +37,30 @@ def compute_date_range(days=30):
     return start.isoformat(), end.isoformat()
 
 
-def aggregate_metrics(daily_data):
-    """Aggregate daily metrics into totals and averages."""
+def aggregate_metrics(daily_data, period_reach=None):
+    """Aggregate additive metrics and attach separately fetched period reach."""
     total_spend = sum(float(d.get("spend", 0)) for d in daily_data)
     total_impressions = sum(int(d.get("impressions", 0)) for d in daily_data)
     total_clicks = sum(int(d.get("clicks", 0)) for d in daily_data)
-    total_reach = sum(int(d.get("reach", 0)) for d in daily_data)
 
     avg_ctr = (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
     avg_cpc = (total_spend / total_clicks) if total_clicks > 0 else 0
     avg_cpm = (total_spend / total_impressions * 1000) if total_impressions > 0 else 0
 
-    return {
+    summary = {
         "total_spend": total_spend,
         "total_impressions": total_impressions,
         "total_clicks": total_clicks,
-        "total_reach": total_reach,
         "avg_ctr": round(avg_ctr, 2),
         "avg_cpc": round(avg_cpc, 2),
         "avg_cpm": round(avg_cpm, 2),
-        "days": len(daily_data),
+        "rows": len(daily_data),
     }
+    if period_reach is not None:
+        summary["period_reach"] = period_reach
+    else:
+        summary["reach_note"] = "Reach is not additive across entities or days; account-level period reach was not fetched."
+    return summary
 
 
 def extract_conversions(actions):
@@ -92,7 +96,7 @@ def cache_key_for(level, days, breakdown=None, daily=False, attribution=False):
     Every flag that changes the response has to be part of the key, or two
     different queries read each other's cached result.
     """
-    key = f"insights_{level}_{days}d"
+    key = f"insights_v2_{level}_{days}d"
     if attribution:
         return key + "_attribution"
     if breakdown:
@@ -103,17 +107,19 @@ def cache_key_for(level, days, breakdown=None, daily=False, attribution=False):
 
 
 def fetch_insights(account_id, access_token, days=30, level="campaign",
-                   breakdown=None, time_increment=None):
+                   breakdown=None, time_increment=None, time_range=None):
     """Fetch insights from Meta Marketing API."""
     from facebook_business.adobjects.adaccount import AdAccount
 
     api = meta_utils.init_api(access_token)
     account = AdAccount(account_id, api=api)
 
-    start_date, end_date = compute_date_range(days)
+    if time_range is None:
+        start_date, end_date = compute_date_range(days)
+        time_range = {"since": start_date, "until": end_date}
 
     params = {
-        "time_range": {"since": start_date, "until": end_date},
+        "time_range": time_range,
         "level": level,
     }
 
@@ -131,6 +137,32 @@ def fetch_insights(account_id, access_token, days=30, level="campaign",
         lambda: list(account.get_insights(fields=METRICS, params=params))
     )
     return [meta_campaigns.to_plain(dict(i)) for i in insights]
+
+
+def fetch_period_reach(account_id, access_token, time_range, no_cache=False):
+    """Fetch unique account reach for the whole reporting period through the cache."""
+    import requests
+    from facebook_business.adobjects.adaccount import AdAccount
+    from facebook_business.exceptions import FacebookRequestError
+
+    reach_params = {"time_range": time_range, "level": "account"}
+    cache_key = "insights_period_reach_" + hashlib.sha256(
+        json.dumps(reach_params, sort_keys=True).encode()).hexdigest()
+
+    def fetch():
+        api = meta_utils.init_api(access_token)
+        account = AdAccount(account_id, api=api)
+        return meta_campaigns.to_plain(meta_campaigns.api_call_with_retry(
+            lambda: [dict(row) for row in account.get_insights(fields=["reach"], params=reach_params)]
+        ))
+
+    try:
+        rows = meta_utils.cached(account_id, cache_key, fetch, no_cache=no_cache)
+    except (FacebookRequestError, requests.exceptions.RequestException):
+        return None
+    if len(rows) == 1 and rows[0].get("reach") is not None:
+        return int(rows[0]["reach"])
+    return None
 
 
 def main():
@@ -195,7 +227,10 @@ def main():
         print(json.dumps(result, indent=2))
         return
 
-    raw = fetch_insights(args.account, token, args.days, args.level, args.breakdown, time_increment)
+    start_date, end_date = compute_date_range(args.days)
+    time_range = {"since": start_date, "until": end_date}
+    raw = fetch_insights(args.account, token, args.days, args.level, args.breakdown, time_increment,
+                         time_range=time_range)
 
     result = {
         "status": "ok",
@@ -208,7 +243,8 @@ def main():
     }
 
     if not args.breakdown and not args.daily:
-        result["summary"] = aggregate_metrics(raw)
+        period_reach = fetch_period_reach(args.account, token, time_range, no_cache=args.no_cache)
+        result["summary"] = aggregate_metrics(raw, period_reach=period_reach)
 
     meta_campaigns.write_cache(args.account, cache_key, result)
     print(json.dumps(result, indent=2))
