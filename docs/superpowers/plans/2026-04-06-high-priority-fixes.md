@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix the 6 issues discovered during the first real audit of the Halyk Bank SK account — missing entity names in insights, broken creative format detection, unreliable CAPI check, no click/view attribution split, wall-of-text report, and no rate-limit handling.
+**Goal:** Fix the 6 issues discovered during the first real audit of the Halyk Bank SK account - missing entity names in insights, broken creative format detection, unreliable CAPI check, no click/view attribution split, wall-of-text report, and no rate-limit handling.
 
 **Architecture:** All changes are in `scripts/`. Each task modifies one Python file plus its test file. No new files except `scripts/meta_pdf.py` for PDF generation. The report overhaul replaces the current HTML-only approach with markdown-first + optional PDF via fpdf2.
 
@@ -31,7 +31,7 @@ class TestInsightsFields(unittest.TestCase):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd ~/claude-meta-ads/scripts && source ../.venv/bin/activate && python3 -m pytest test_meta_insights.py::TestInsightsFields -v`
-Expected: FAIL — `campaign_name` not in METRICS
+Expected: FAIL - `campaign_name` not in METRICS
 
 - [ ] **Step 3: Add entity name fields to METRICS**
 
@@ -212,7 +212,7 @@ Replace the loop body (lines 93-114) with:
         result.append(entry)
 ```
 
-Note: Remove the old `ad_to_creative` population loop — it's now inside the new loop above.
+Note: Remove the old `ad_to_creative` population loop - it's now inside the new loop above.
 
 - [ ] **Step 5: Run all tests**
 
@@ -251,7 +251,7 @@ class TestAttributionParams(unittest.TestCase):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd ~/claude-meta-ads/scripts && python3 -m pytest test_meta_insights.py::TestAttributionParams -v`
-Expected: FAIL — `build_attribution_params` not defined
+Expected: FAIL - `build_attribution_params` not defined
 
 - [ ] **Step 3: Add build_attribution_params and --attribution CLI flag**
 
@@ -357,7 +357,7 @@ class TestCAPIDetection(unittest.TestCase):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd ~/claude-meta-ads/scripts && python3 -m pytest test_meta_events.py::TestCAPIDetection -v`
-Expected: FAIL — `detect_capi_status` not defined
+Expected: FAIL - `detect_capi_status` not defined
 
 - [ ] **Step 3: Add detect_capi_status function**
 
@@ -450,7 +450,7 @@ git commit -m "feat: detect CAPI status from pixel server events"
 
 ---
 
-### Task 5: Report overhaul — markdown + PDF
+### Task 5: Report overhaul - markdown + PDF
 
 **Files:**
 - Modify: `scripts/meta_report.py` (rewrite to generate markdown, add PDF via fpdf2)
@@ -591,7 +591,7 @@ if __name__ == "__main__":
 - [ ] **Step 3: Run tests to verify they fail**
 
 Run: `cd ~/claude-meta-ads/scripts && python3 -m pytest test_meta_report.py -v`
-Expected: FAIL — `generate_markdown` not defined
+Expected: FAIL - `generate_markdown` not defined
 
 - [ ] **Step 4: Rewrite meta_report.py**
 
@@ -939,7 +939,7 @@ class TestRetryWrapper(unittest.TestCase):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd ~/claude-meta-ads/scripts && python3 -m pytest test_meta_campaigns.py::TestRetryWrapper -v`
-Expected: FAIL — `api_call_with_retry` not defined
+Expected: FAIL - `api_call_with_retry` not defined
 
 - [ ] **Step 3: Add the retry wrapper to meta_campaigns.py**
 

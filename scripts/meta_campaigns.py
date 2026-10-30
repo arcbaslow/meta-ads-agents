@@ -8,7 +8,7 @@ import sys
 import meta_auth
 import meta_utils
 
-# Backward-compatible aliases — other scripts import these from meta_campaigns
+# Backward-compatible aliases - other scripts import these from meta_campaigns
 to_plain = meta_utils.to_plain
 api_call_with_retry = meta_utils.api_call_with_retry
 read_cache = meta_utils.read_cache

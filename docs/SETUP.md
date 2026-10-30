@@ -30,10 +30,10 @@ python -m pip install -e .
 ## Step 4: Configure Permissions
 
 Your app needs these permissions:
-- `ads_read` — Read ad account data
-- `ads_management` — Access campaign structure
-- `read_insights` — Access performance metrics
-- `business_management` — Access business-level data
+- `ads_read` - Read ad account data
+- `ads_management` - Access campaign structure
+- `read_insights` - Access performance metrics
+- `business_management` - Access business-level data
 
 For **development** use, you can generate a token from the Graph API Explorer.
 For **production** use, submit your app for App Review.

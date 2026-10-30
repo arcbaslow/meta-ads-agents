@@ -11,7 +11,7 @@ Please do not file public issues for security problems.
 
 - Credential handling in `scripts/meta_auth.py` and any path that
   touches `~/.claude/meta-ads-credentials.json`
-- The OAuth callback listener on `localhost:8477` — CSRF on the state
+- The OAuth callback listener on `localhost:8477` - CSRF on the state
   parameter, callback hijacking, token leakage into the URL bar or
   shell history
 - Long-lived token exchange: app secret handling in
@@ -26,7 +26,7 @@ Please do not file public issues for security problems.
 
 - Misuse of the toolkit against an ad account you do not have
   legitimate access to
-- Bugs in the upstream Meta Marketing API itself — report those to Meta
+- Bugs in the upstream Meta Marketing API itself - report those to Meta
 - Issues that require an attacker with shell access to the user's
   machine (they already own `~/.claude/` and the OS temp directory)
 
@@ -38,7 +38,7 @@ Please do not file public issues for security problems.
 - Or, instead of the file, the `META_ACCESS_TOKEN` environment variable.
   When it is set the file is not read.
 - Cached API responses:
-  `<system temp>/claude-meta-ads/` — 15-minute TTL
+  `<system temp>/claude-meta-ads/` - 15-minute TTL
 
 The toolkit never logs credentials to stdout, never sends them to a
 third party, and never bakes them into report files.
@@ -52,7 +52,7 @@ your environment, run with `--no-cache`.
 
 Long-lived Meta tokens last 60 days. `meta_auth.py --check` reports the
 stored expiry and warns as it approaches. Rotate the app secret in the
-Meta App dashboard if you suspect exposure — revoking there
+Meta App dashboard if you suspect exposure - revoking there
 invalidates every derived token.
 
 ## Disclosure timeline

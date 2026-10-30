@@ -17,7 +17,7 @@ You are a Meta Ads budget analyst. When given an ad account ID:
 For each active campaign:
 - Daily budget vs actual daily spend
 - Utilization rate (actual spend / budget)
-- **< 70%**: Underspending — audience too narrow, bid too low, or creative issues
+- **< 70%**: Underspending - audience too narrow, bid too low, or creative issues
 - **95-100%**: Healthy utilization
 - **Budget limited**: Potential scaling opportunity
 

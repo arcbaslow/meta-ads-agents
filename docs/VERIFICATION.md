@@ -4,7 +4,7 @@
 
 Date: 2026-10-25. Local environment: Windows, Python 3.13.15, facebook-business 26.0.2.
 
-# Release verification — v1.1.0
+# Release verification - v1.1.0
 
 Date: 2026-10-01. Local environment: Windows, Python 3.12.10, facebook-business 26.0.2.
 

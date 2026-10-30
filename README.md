@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="Meta Ads Agents — Campaign performance, creative fatigue and event health." width="100%">
+  <img src="assets/banner.svg" alt="Meta Ads Agents - Campaign performance, creative fatigue and event health." width="100%">
 </p>
 
 # Meta Ads Agents
@@ -183,7 +183,7 @@ The fixture-based suite requires no Meta account and covers auth and OAuth state
 
 ## Releases
 
-**[v1.1.0](https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.1.0)** — see the [release notes](docs/RELEASE_NOTES.md) for this release and the [changelog](CHANGELOG.md) for project history.
+**[v1.1.0](https://github.com/arcbaslow/meta-ads-agents/releases/tag/v1.1.0)** - see the [release notes](docs/RELEASE_NOTES.md) for this release and the [changelog](CHANGELOG.md) for project history.
 
 GitHub Releases include downloadable artifacts and checksums. Package-registry publication is a separate, opt-in workflow; a GitHub release does not imply that the same version is available on PyPI or npm. Maintainers can follow the [release guide](docs/RELEASING.md).
 
@@ -201,7 +201,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md), run the checks above, and include a min
 | [GTM Diff](https://github.com/arcbaslow/gtm-diff) | Review the changes in your Google Tag Manager exports. |
 | [Figma Taxonomy Gen](https://github.com/arcbaslow/figma-taxonomy-gen) | Turn interactive designs into a reviewable tracking plan. |
 
-Maintained by [Good Labs](https://goodlabs.kz) — measurement implementation, tracking plans and analytics audits.
+Maintained by [Good Labs](https://goodlabs.kz) - measurement implementation, tracking plans and analytics audits.
 
 ## License
 

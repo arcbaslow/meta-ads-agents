@@ -88,7 +88,7 @@ class TestRetryLogic(unittest.TestCase):
             raise KeyError("missing key")
         with self.assertRaises(KeyError):
             meta_utils.api_call_with_retry(buggy_fn, max_retries=3, base_delay=0)
-        # Should only be called once — no retries for programming errors
+        # Should only be called once - no retries for programming errors
         self.assertEqual(call_count[0], 1)
 
     def test_raises_after_max_retries_on_connection_error(self):
