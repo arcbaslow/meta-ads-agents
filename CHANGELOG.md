@@ -148,8 +148,8 @@ Versioning is [semantic](https://semver.org/spec/v2.0.0.html).
   attacker-supplied code and bind the toolkit to someone else's ad
   account. The flow now generates a 32-byte state, sends it, and
   rejects a callback whose state doesn't match under `hmac.compare_digest`.
-- `read_cache` used `age > ttl_seconds`, so `ttl_seconds=0` — the way
-  callers force a fresh fetch — could still return a cache hit when the
+- `read_cache` used `age > ttl_seconds`, so `ttl_seconds=0` - the way
+  callers force a fresh fetch - could still return a cache hit when the
   entry was written in the same clock tick, or when the filesystem
   reported an mtime marginally ahead of the wall clock. Non-positive
   TTLs now short-circuit to a miss and age is clamped at zero. This was

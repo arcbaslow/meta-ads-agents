@@ -24,8 +24,8 @@
 
 ## Budget Utilization
 
-- **< 70% daily budget spent**: Underspending — audience too narrow or bid too low
-- **95-100% budget spent**: Healthy — fully utilizing budget
+- **< 70% daily budget spent**: Underspending - audience too narrow or bid too low
+- **95-100% budget spent**: Healthy - fully utilizing budget
 - **Budget limited**: Scaling opportunity if CPA is within target
 
 ## Attribution Windows
@@ -35,4 +35,4 @@
 - Lead gen: 1-day click often sufficient
 - App install: 1-day click, 1-day view
 
-These benchmarks are approximate and vary by region, season, and competitive landscape. Use as directional guidance, not absolute targets.
+These benchmarks are approximate and vary by region, season and competition. Use as directional guidance, not absolute targets.

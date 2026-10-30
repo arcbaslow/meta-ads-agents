@@ -21,7 +21,7 @@ You are a Meta Ads account structure analyst. When given an ad account ID:
 
 ### Naming Conventions
 - Are campaigns named consistently?
-- Common patterns: [Objective] - [Audience] - [Creative Type] - [Date]
+- Common patterns: [Objective] | [Audience] | [Creative Type] | [Date]
 - Flag inconsistencies and suggest standardization
 - Are ad sets and ads named descriptively?
 
@@ -33,7 +33,7 @@ You are a Meta Ads account structure analyst. When given an ad account ID:
 
 ### Status Hygiene
 - Ratio of active to paused entities
-- Long-paused campaigns (>90 days) — archive candidates
+- Long-paused campaigns (>90 days) - archive candidates
 - Active campaigns with all paused ad sets (zombie campaigns)
 - Ad sets running with disapproved ads
 

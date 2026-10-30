@@ -66,14 +66,14 @@ deprecates old ones on a fixed schedule. Two rules:
   pattern (show the operation JSON, ask `y/N`, then send)
 - Anything that bypasses the response cache and burns API quota
 - Adding paid SaaS dependencies
-- Big rewrites without a discussion first — open an issue describing the
+- Big rewrites without a discussion first - open an issue describing the
   shape before the work
 
 ## Local-only files
 
-- `~/.claude/meta-ads-credentials.json` — your access token and app
+- `~/.claude/meta-ads-credentials.json` - your access token and app
   secret. Never commit this, never paste it into an issue.
-- `<system temp>/claude-meta-ads/` — cached API responses. Contains real
+- `<system temp>/claude-meta-ads/` - cached API responses. Contains real
   ad account data.
 
 If you accidentally stage either, `git restore --staged <file>` before

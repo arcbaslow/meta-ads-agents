@@ -276,7 +276,7 @@ def _markdown_to_html(markdown_text):
     for line in markdown_text.split("\n"):
         stripped = line.strip()
 
-        # Table separator row — skip
+        # Table separator row - skip
         if stripped.startswith("|") and "---" in stripped:
             continue
 

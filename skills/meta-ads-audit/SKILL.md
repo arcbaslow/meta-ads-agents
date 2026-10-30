@@ -20,16 +20,16 @@ metadata:
 4. **Delegate to agents in parallel**:
 
    ALWAYS (7 core agents):
-   - `meta-performance` — campaign/ad set/ad metrics, trends, anomalies
-   - `meta-creative` — creative performance, fatigue detection, format analysis
-   - `meta-audience` — targeting effectiveness, overlap, demographics, placements
-   - `meta-events` — pixel health, CAPI coverage, conversion funnel
-   - `meta-budget` — budget utilization, allocation, bid strategies, scaling
-   - `meta-account` — account structure, naming, hygiene, consolidation
-   - `meta-delivery` — stalled ad sets, caps below real CPA, learning phase, budget size
+   - `meta-performance` - campaign/ad set/ad metrics, trends, anomalies
+   - `meta-creative` - creative performance, fatigue detection, format analysis
+   - `meta-audience` - targeting effectiveness, overlap, demographics, placements
+   - `meta-events` - pixel health, CAPI coverage, conversion funnel
+   - `meta-budget` - budget utilization, allocation, bid strategies, scaling
+   - `meta-account` - account structure, naming, hygiene, consolidation
+   - `meta-delivery` - stalled ad sets, caps below real CPA, learning phase, budget size
 
    CONDITIONAL:
-   - `meta-attribution` — attribution windows, click vs view, cross-campaign overlap (spawn when conversion-optimized campaigns detected in step 3)
+   - `meta-attribution` - attribution windows, click vs view, cross-campaign overlap (spawn when conversion-optimized campaigns detected in step 3)
 
 5. **Collect results** from all agents
 6. **Generate unified recommendations** prioritized: Critical > High > Medium > Low

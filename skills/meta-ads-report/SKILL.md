@@ -25,14 +25,14 @@ metadata:
 
 ## Report Sections
 
-1. Executive Summary — key metrics, top recommendations
-2. Performance Overview — spend, ROAS, CPA, CTR trends with charts
-3. Campaign Breakdown — all campaigns with metrics table
-4. Creative Analysis — top/bottom performers, fatigue alerts
-5. Audience Insights — best audiences, overlap, demographics
-6. Event & Tracking Health — pixel status, CAPI, funnel
-7. Budget Efficiency — utilization, reallocation recommendations
-8. Prioritized Action Plan — Critical > High > Medium > Low
+1. Executive Summary - key metrics, top recommendations
+2. Performance Overview - spend, ROAS, CPA, CTR trends with charts
+3. Campaign Breakdown - all campaigns with metrics table
+4. Creative Analysis - top/bottom performers, fatigue alerts
+5. Audience Insights - best audiences, overlap, demographics
+6. Event & Tracking Health - pixel status, CAPI, funnel
+7. Budget Efficiency - utilization, reallocation recommendations
+8. Prioritized Action Plan - Critical > High > Medium > Low
 
 ## Options
 
