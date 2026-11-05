@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="Meta Ads Agents - Campaign performance, creative fatigue and event health." width="100%">
+  <img src="assets/hero.jpg" alt="Meta Ads Agents: robot curators examine a gallery wall of ad frames, checking a faded one with a magnifier and thermometer while another carries in a fresh frame." width="100%">
 </p>
 
 # Meta Ads Agents
@@ -11,7 +11,7 @@ Campaign performance, creative fatigue and event health.
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-7c3aed?logo=python&logoColor=white)](#installation)
 [![MIT license](https://img.shields.io/badge/license-MIT-475569)](LICENSE)
 
-[Quick start](#quick-start) · [Example output](#example-output) · [Tests](#tests) · [Releases](#releases) · [Contributing](CONTRIBUTING.md)
+[Quick start](#quick-start) | [Example output](#example-output) | [Agent workflow](#agent-workflow) | [Tests](#tests) | [Releases](#releases) | [Contributing](CONTRIBUTING.md)
 
 A read-only Python toolkit for Facebook and Instagram advertising analysis. It reads Marketing API data, works out why ad sets stall, what changed before a metric moved and which creatives are wearing out, and combines specialist findings into reports through the `/meta-ads` agent workflow.
 
@@ -114,7 +114,21 @@ With the repository's [plugin](.claude-plugin/plugin.json) and [skills](skills/)
 /meta-ads changes act_123456789
 ```
 
-The audit skill distributes work across the specialists in [agents/](agents/), then combines their findings. Other agent runtimes can follow [AGENTS.md](AGENTS.md) and run the underlying adapters directly.
+The audit skill distributes work across the specialists in [agents/](agents/), then combines their findings:
+
+```mermaid
+flowchart LR
+  A["meta_auth.py --check"] --> B["Account structure<br/>meta_campaigns.py<br/>--fetch-all"]
+  B --> C["7 specialists in parallel<br/>performance, creative, audience, events,<br/>budget, account, delivery"]
+  B -. "sales, leads or app objectives" .-> D["Attribution specialist"]
+  C --> E["Prioritized action plan<br/>Critical, High, Medium, Low"]
+  D --> E
+  E -. "/meta-ads report" .-> F["Markdown, HTML, PDF or CSV"]
+  classDef step fill:#f3edfd,stroke:#7c3aed,color:#17202a
+  class A,B,C,D,E,F step
+```
+
+Each specialist fetches its own data through the Python adapters. The attribution specialist joins only when the account has conversion-optimized campaigns. Other agent runtimes can follow [AGENTS.md](AGENTS.md) and run the underlying adapters directly.
 
 ## Reports and comparisons
 
