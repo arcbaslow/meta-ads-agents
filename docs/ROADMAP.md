@@ -80,7 +80,7 @@ Each fix has a regression test. "Official MCP" does not apply to these: they are
 | 5 | `--health-check` never used the cache | One listing plus stats calls per pixel on every run, against the repo's own rule | Read in `meta_events.py` | None | S | Low |
 | 6 | Account IDs were not normalised | The README said `123` and `act_123` both work. A bare number went to the API as a different node | README "Quick start"; no normaliser existed in `scripts/` | None | S | Low |
 | 7 | `--compare` computed the comparison and left it out of the report | The README's comparison example wrote a report with no comparison in it | Confirmed by running the README command | None | S | Low |
-| 8 | `--with-metrics` requested `effective_object_story_spec` on the Ad node | The field exists on neither Ad nor AdCreative. The Graph API rejects unknown fields, so the quick-start command is expected to fail on a real account | Zero occurrences in SDK 19.0.0 and 26.0.2; absent from [M4][M5]. The name came from `docs/superpowers/plans/2026-04-06-high-priority-fixes.md` | `AdCreative.object_story_spec`, `AdCreative.object_type` | S | Low |
+| 8 | `--with-metrics` requested `effective_object_story_spec` on the Ad node | The field exists on neither Ad nor AdCreative. The Graph API rejects unknown fields, so the quick-start command is expected to fail on a real account | Zero occurrences in SDK 19.0.0 and 26.0.2; absent from [M4][M5]. The name came from an early internal plan | `AdCreative.object_story_spec`, `AdCreative.object_type` | S | Low |
 | 9 | Events were compared by the wrong names | Insights returns `offsite_conversion.fb_pixel_purchase`; the code expected `Purchase`. Every event was labelled custom, the funnel had no order, and link clicks were listed as pixel events | Action type names from [M6] | `actions.action_type` | S | Low |
 | 10 | API failures ended in a traceback with empty stdout | An agent reading stdout got nothing to act on for an expired token or a throttle | Read in every adapter's `main`; token codes from [M7], usage header from [M2] | Error 190 and 102; `X-Business-Use-Case-Usage.estimated_time_to_regain_access` | S | Low |
 | 11 | Token could only come from the credentials file | `CLAUDE.md` says tokens come from the environment. Nothing read it, so CI and scheduled runs needed a token on disk | `meta_auth.py` | None | S | Low |
@@ -250,7 +250,7 @@ Behaviour that may be intended. The code was left alone.
 7. **Credentials file against environment.** `CLAUDE.md` says tokens come from the environment only. The file is still the default, and `META_ACCESS_TOKEN` now takes precedence. Should the file be deprecated?
 8. **Benchmarks file.** `skills/meta-ads/references/benchmarks.md` lists CTR, CPC, CPM, CPA and ROAS by vertical with no source. The official server has a benchmark tool backed by Meta's data.
 9. **Skill versions.** Every `SKILL.md` says `version: "1.0.0"` while the package is 1.0.2. Unknown whether skills are versioned separately.
-10. **Old plan file.** `docs/superpowers/plans/2026-04-06-high-priority-fixes.md` is where the nonexistent `effective_object_story_spec` field came from. Keep as history or remove?
+10. **Old plan file.** Removed on 2026-11-07.
 11. **Dead code.** `extract_conversions` (`meta_insights.py:66`) has no caller.
 ## Decided
 
