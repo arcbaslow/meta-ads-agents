@@ -7,6 +7,16 @@ Versioning is [semantic](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/meta_mcp.py`, a write path for MCP hosts, after the owner's decision of 2026-11-26
+  that writes are in scope. `list_profiles` reads `~/.claude/meta-credentials.json` without
+  tokens; `plan_changes` validates up to 50 operations (PAUSED creates of campaigns, ad sets,
+  creatives and ads, single-field edits, pauses) with `validate_only`, uploads new media after
+  the host's gate, and returns a diff and a single-use token; `apply_changes` sends the plan once after the host's gate and reports
+  partial results without rollback. `docs/WRITES.md` describes the tools. `requests` is now a
+  declared dependency.
+
 ### Fixed
 
 - Escape report HTML and PDF text and neutralize formula prefixes in CSV string cells.
@@ -14,6 +24,7 @@ Versioning is [semantic](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `CLAUDE.md`, `docs/ROADMAP.md` and the README no longer say writes are out of scope.
 - Remove `summary.total_reach` in favour of `summary.period_reach` plus `summary.reach_note`; replace `summary.days` with `summary.rows`; rename report input `summary.reach` to `summary.period_reach`.
 - README: a section on where the toolkit sits next to Meta's official Ads MCP
   server, the API version and error output under "Caching and API behavior",

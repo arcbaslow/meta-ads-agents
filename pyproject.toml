@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
     "facebook-business>=26.0.0,<27",
     "fpdf2>=2.8.1",
+    "requests>=2.31,<3",
 ]
 
 [project.optional-dependencies]
@@ -47,7 +48,7 @@ package-dir = { "" = "scripts" }
 py-modules = [
     "meta_auth", "meta_campaigns", "meta_insights", "meta_creatives",
     "meta_audiences", "meta_events", "meta_report", "meta_utils",
-    "meta_delivery", "meta_changes",
+    "meta_delivery", "meta_changes", "meta_mcp",
 ]
 
 [tool.ruff]

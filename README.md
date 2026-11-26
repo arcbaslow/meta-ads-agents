@@ -13,7 +13,7 @@ Campaign performance, creative fatigue and event health.
 
 [Quick start](#quick-start) | [Example output](#example-output) | [Agent workflow](#agent-workflow) | [Tests](#tests) | [Releases](#releases) | [Contributing](CONTRIBUTING.md)
 
-A read-only Python toolkit for Facebook and Instagram advertising analysis. It reads Marketing API data, works out why ad sets stall, what changed before a metric moved and which creatives are wearing out, and combines specialist findings into reports through the `/meta-ads` agent workflow.
+A Python toolkit for Facebook and Instagram advertising analysis. It reads Marketing API data, works out why ad sets stall, what changed before a metric moved and which creatives are wearing out, and combines specialist findings into reports through the `/meta-ads` agent workflow.
 
 ## What you can do
 
@@ -28,7 +28,7 @@ A read-only Python toolkit for Facebook and Instagram advertising analysis. It r
 | Delivery | Stalled ad sets: caps below the account's real CPA, learning phase status, budgets too small for the optimisation event |
 | Reports | Markdown, HTML, PDF, CSV tables and period comparisons |
 
-The adapters retrieve data and compute the delivery, change history and fatigue checks; specialist agents interpret the results. The complete audit is an agent skill, not a standalone `meta_audit.py` command. Account mutation is not implemented.
+The adapters retrieve data and compute the delivery, change history and fatigue checks; specialist agents interpret the results. The complete audit is an agent skill, not a standalone `meta_audit.py` command. The adapters only read; account changes go through the gated MCP tools in `scripts/meta_mcp.py` ([docs/WRITES.md](docs/WRITES.md)).
 
 ## Next to Meta's Ads MCP server
 
@@ -42,7 +42,7 @@ Meta ships its own [Ads MCP server](https://developers.facebook.com/documentatio
 | How do conversions differ by attribution window? | No window parameter | `meta_insights.py --attribution` |
 | Can I get a report file, or diff two runs? | Conversational output | Markdown, HTML, PDF and CSV reports; sorted, stable JSON |
 
-To change anything in an account, use Ads Manager or the official server. The full comparison, with sources, is in the [roadmap](docs/ROADMAP.md).
+Since 2026-11-26 an MCP host can also register `meta_mcp.py`: `list_profiles`, and `plan_changes` / `apply_changes`, which create PAUSED campaigns, ad sets, creatives and ads, edit one field or pause, validated with `validate_only` and applied once with a token after the host's gate. A plan with new media uploads it to the account's media library, also after the gate. Activation stays in Ads Manager. The full comparison, with sources, is in the [roadmap](docs/ROADMAP.md).
 
 ## Installation
 
@@ -183,7 +183,7 @@ python -m ruff check scripts/
 python -m pytest scripts/ -q
 ```
 
-The fixture-based suite requires no Meta account and covers auth and OAuth state validation, cache behavior, campaign and audience queries, creative scoring and fatigue, event health, delivery diagnosis, change history, report formats, error output without tokens, agent-command parsing and version consistency. It also checks every field the adapters request against the installed SDK's field lists. CI runs Python 3.10–3.13. See the [release verification](docs/VERIFICATION.md).
+The fixture-based suite requires no Meta account and covers auth and OAuth state validation, cache behavior, campaign and audience queries, creative scoring and fatigue, event health, delivery diagnosis, change history, the gated write tools against a fake Graph API, report formats, error output without tokens, agent-command parsing and version consistency. It also checks every field the adapters request against the installed SDK's field lists. CI runs Python 3.10–3.13. See the [release verification](docs/VERIFICATION.md).
 
 ## Repository map
 

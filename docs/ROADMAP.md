@@ -6,7 +6,7 @@ Written 2026-09-30 against v1.0.2. The "Now" group shipped in v1.1.0. Marketing 
 
 Meta ships its own Ads MCP server at `mcp.facebook.com/ads`, in open beta since 2026-04-29 [O1]. It lists accounts and entities, runs insights queries from a closed field catalogue, reads the activity log, datasets and delivery errors, offers Meta-side benchmarks, anomaly and trend tools, and writes campaigns, ad sets, ads, creatives, audiences, catalogues and experiments [O2][L].
 
-This toolkit does not rebuild any of that. It is the read-only analysis layer for the questions the server leaves to the person running the account:
+This toolkit does not rebuild any of that. Its adapters are the read-only analysis layer for the questions the server leaves to the person running the account:
 
 - Why is this ad set not spending?
 - What changed before this dropped?
@@ -14,7 +14,7 @@ This toolkit does not rebuild any of that. It is the read-only analysis layer fo
 - How do conversions differ by attribution window?
 - What goes into a report I can send or diff?
 
-Its outputs are computed by code from fields the Marketing API returns, cached locally, and written as JSON, markdown, CSV, HTML or PDF. It writes nothing to an ad account. For changes, use Ads Manager or the official server.
+Its outputs are computed by code from fields the Marketing API returns, cached locally, and written as JSON, markdown, CSV, HTML or PDF. The adapters write nothing to an ad account. Since 2026-11-26 `scripts/meta_mcp.py` adds a gated write path for MCP hosts: PAUSED campaigns, ad sets, creatives and ads, single-field edits and pauses, planned with `validate_only` (new media is uploaded after the host's gate) and applied once with a token ([WRITES.md](WRITES.md)).
 
 ## Coverage table
 
@@ -51,7 +51,7 @@ Its outputs are computed by code from fields the Marketing API returns, cached l
 | Deterministic output for schedules and CI | No: conversational [S2] | Partial: delivery, change and fatigue output is sorted and stable; token from the environment; no single audit bundle | Audit bundle with exit codes |
 | Report export (markdown, CSV, HTML, PDF) | No [L][S2] | Yes (`meta_report.py`) | |
 | Local response cache | No: remote only [O1] | Yes, 15 minutes | |
-| Creating and changing campaigns, ad sets, ads, creatives, audiences | Yes [O2] | No, by design | |
+| Creating and changing campaigns, ad sets, ads, creatives, audiences | Yes [O2] | Partial: PAUSED creates, single-field edits and pauses through `meta_mcp.py`; no audiences, no activation | |
 | A/B and lift tests, catalogue management, Ad Library search | Yes [O2][O7] | No | |
 
 ## Baseline
@@ -225,7 +225,6 @@ Proposals. None of these is built.
 - **Figures in agent-written reports checked by code** against the JSON the adapters produced, before the report is shown [G10].
 - **Explaining a CPA change by mix and efficiency** (shift-share between periods) [G2].
 - **`appsecret_proof` on API calls.** The app secret is already stored at login.
-- **Write features.** Not proposed. The official server creates and updates every entity this toolkit reads, under account-level rules an admin controls [O1]. A second write path here would duplicate it and add risk. If that changes, `CLAUDE.md` already sets the pattern: show the operation JSON, ask, then send.
 
 ## Considered and rejected
 
@@ -258,6 +257,10 @@ Owner decisions, 2026-10-01:
 
 - The delivery agent stays in the full audit. The audit skill starts seven core agents.
 - `facebook-business>=26.0.0,<27` is accepted. The SDK major and `API_VERSION` move together in one commit.
+
+Owner decision, 2026-11-26:
+
+- The repo gets a write path, replacing the earlier "not proposed" entry under Later. It is `scripts/meta_mcp.py` (`list_profiles`, `plan_changes`, `apply_changes`) for an MCP host that gates every write per profile. Creates are PAUSED, `set_status` only pauses, and nothing is rolled back on a partial apply. The request code uses `requests` against the Graph API directly, not the SDK. Details in [WRITES.md](WRITES.md).
 
 ## Could not verify
 

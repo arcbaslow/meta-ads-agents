@@ -37,6 +37,9 @@ Please do not file public issues for security problems.
   Windows relies on the user profile ACL)
 - Or, instead of the file, the `META_ACCESS_TOKEN` environment variable.
   When it is set the file is not read.
+- Write profiles for the MCP change-set tools (system-user token, optional
+  app secret, account and page allowlists):
+  `~/.claude/meta-credentials.json`, written by the host's owner
 - Cached API responses:
   `<system temp>/claude-meta-ads/` - 15-minute TTL
 
