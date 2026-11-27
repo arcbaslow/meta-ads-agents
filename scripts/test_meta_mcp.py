@@ -15,24 +15,33 @@ SECRET = "appsecret456xyz"
 OTHER_TOKEN = "EAAothertoken789"
 
 
+COMMON_FIELDS = {"id", "account_id", "status", "effective_status", "updated_time", "name"}
+TYPE_FIELDS = {
+    "campaign": COMMON_FIELDS | {"objective", "daily_budget", "lifetime_budget"},
+    "ad_set": COMMON_FIELDS | {"campaign_id", "optimization_goal", "daily_budget", "lifetime_budget",
+                               "bid_amount", "end_time"},
+    "ad": COMMON_FIELDS | {"adset_id"},
+}
+
+
 class FakeGraph:
     def __init__(self):
         self.calls = []
         self.names = {"Existing"}
         live = {"status": "ACTIVE", "effective_status": "ACTIVE", "updated_time": "t1"}
         self.objects = {
-            "901": {"account_id": "111", **live, "objective": "OUTCOME_SALES", "daily_budget": "1000",
-                    "name": "Old"},
-            "902": {"account_id": "111", **live, "adset_id": "1"},
-            "903": {"account_id": "111", **live, "adset_id": "1"},
-            "904": {"account_id": "111", **live, "adset_id": "1"},
-            "990": {"account_id": "999", **live, "adset_id": "1"},
-            "123": {"account_id": "111", **live, "objective": "OUTCOME_SALES"},
-            "124": {"account_id": "999", **live, "objective": "OUTCOME_SALES"},
-            "801": {"account_id": "111", **live, "campaign_id": "123", "optimization_goal": "REACH",
-                    "end_time": "2020-01-01T00:00:00+0000"},
-            "802": {"account_id": "111", **live, "campaign_id": "123", "optimization_goal": "REACH",
-                    "end_time": "2099-01-01T00:00:00+0000"},
+            "901": {"type": "campaign", "account_id": "111", **live, "objective": "OUTCOME_SALES",
+                    "daily_budget": "1000", "name": "Old"},
+            "902": {"type": "ad", "account_id": "111", **live, "adset_id": "1"},
+            "903": {"type": "ad", "account_id": "111", **live, "adset_id": "1"},
+            "904": {"type": "ad", "account_id": "111", **live, "adset_id": "1"},
+            "990": {"type": "ad", "account_id": "999", **live, "adset_id": "1"},
+            "123": {"type": "campaign", "account_id": "111", **live, "objective": "OUTCOME_SALES"},
+            "124": {"type": "campaign", "account_id": "999", **live, "objective": "OUTCOME_SALES"},
+            "801": {"type": "ad_set", "account_id": "111", **live, "campaign_id": "123",
+                    "optimization_goal": "REACH", "end_time": "2020-01-01T00:00:00+0000"},
+            "802": {"type": "ad_set", "account_id": "111", **live, "campaign_id": "123",
+                    "optimization_goal": "REACH", "end_time": "2099-01-01T00:00:00+0000"},
         }
         self.hashes = {"abc", "h", "h1"}
         self.fail = {}
@@ -51,10 +60,14 @@ class FakeGraph:
             if path == "act_111/campaigns":
                 name = json.loads(params["filtering"])[0]["value"]
                 return 200, {"data": [{"id": "1"}] if name in self.names else []}
-            if path == "":
-                fields = params["fields"].split(",")
-                return 200, {i: {"id": i, **{k: v for k, v in self.objects[i].items() if k in fields}}
-                             for i in params["ids"].split(",") if i in self.objects}
+            assert "ids" not in params
+            if path in self.objects:
+                obj, fields = self.objects[path], set(params["fields"].split(","))
+                if not fields <= TYPE_FIELDS[obj["type"]]:
+                    return 400, {"error": {"code": 100, "message": "Tried accessing nonexisting field"}}
+                return 200, {"id": path, **{k: v for k, v in obj.items() if k in fields}}
+            if path.isdigit() and params["fields"] != "status":
+                return 400, {"error": {"code": 100, "error_subcode": 33}}
             if path == "act_111/adimages":
                 return 200, {"data": [{"hash": h} for h in json.loads(params["hashes"])
                                       if h in self.hashes]}
@@ -173,7 +186,7 @@ def test_full_plan_and_apply(graph, caplog):
     assert result["confirm_expires_in"] == 600
     assert [e["validated"] for e in result["diff"]] == [True, True, True, "at_apply", True, "at_apply"]
     update = result["diff"][2]
-    assert (update["from"], update["to"], update["effective_status"]) == ("1000", 2000, "ACTIVE")
+    assert (update["from"], update["to"], update["effective_status"]) == (1000, 2000, "ACTIVE")
     assert result["diff"][0]["changes"] == [
         {"object_id": "902", "from": "ACTIVE", "to": "PAUSED", "effective_status": "ACTIVE"}]
     dry = graph.posts(dry_run=True)
@@ -365,6 +378,10 @@ def test_video_processing_returns_no_token(graph, store):
     assert "confirm" not in result and meta_mcp._pending == {}
     phases = [c["data"]["upload_phase"] for c in graph.calls if c["url"].endswith("advideos")]
     assert phases == ["start", "transfer", "finish"]
+    chunk = next(c["files"]["video_file_chunk"] for c in graph.calls if c["files"] and "video_file_chunk" in c["files"])
+    assert (chunk[0], chunk[2]) == ("upload.mp4", "video/mp4")
+    cover = next(c["files"]["filename"] for c in graph.calls if c["url"].endswith("adimages") and c["method"] == "POST")
+    assert (cover[0], cover[2]) == ("upload.jpg", "image/jpeg")
     graph.video_status = "ready"
     result = plan([op], uploads=store)
     assert "confirm" in result
@@ -496,8 +513,9 @@ def test_refused_after_reading_state(graph, ops):
 def test_existing_parents_are_read_for_their_account(graph):
     result = plan([{**AD_SET, "campaign_id": "123"}, {**AD, "adset_id": "802", "creative_id": "904"}])
     assert result["dry_run"] is True
-    reads = [c["params"]["ids"] for c in graph.calls if c["method"] == "GET" and "ids" in c["params"]]
-    assert reads == ["123", "802,904"]
+    reads = [c["url"].rsplit("/", 1)[1] for c in graph.calls
+             if c["method"] == "GET" and c["url"].rsplit("/", 1)[1].isdigit()]
+    assert reads == ["123", "802", "904"]
 
 
 def test_new_ad_set_with_end_time_under_existing_campaign(graph):
@@ -591,6 +609,48 @@ def test_discard_only_after_a_request_was_sent(graph, store, monkeypatch):
     assert store.discarded == []
 
 
+@pytest.mark.parametrize("ids,error", [
+    (["902", "777777"], "not_found"),
+    (["902", "901"], "invalid_argument"),
+])
+def test_one_unreadable_object_among_several(graph, ids, error):
+    result = plan([CAMPAIGN, {**PAUSE, "ids": ids}])
+    assert result["error"] == error and result["hint"].startswith("Operation 1:")
+    assert graph.posts() == [] and meta_mcp._pending == {}
+
+
+def test_image_part_named_by_type(graph, store):
+    store.add("j1", b"jpeg-bytes", "IMAGE_JPEG")
+    plan([{**CREATIVE, "image": {"upload": "j1"}}], uploads=store)
+    part = next(c["files"]["filename"] for c in graph.calls if c["url"].endswith("adimages") and c["method"] == "POST")
+    assert (part[0], part[2]) == ("upload.jpg", "image/jpeg")
+
+
+@pytest.mark.parametrize("extra,sent", [
+    ({}, "false"),
+    ({"is_adset_budget_sharing_enabled": True}, "true"),
+    ({"daily_budget": 5000}, None),
+])
+def test_budget_sharing_flag(graph, extra, sent):
+    campaign = {key: value for key, value in CAMPAIGN.items() if key != "daily_budget"}
+    result = plan([{**campaign, **extra}])
+    assert graph.posts()[0]["data"].get("is_adset_budget_sharing_enabled") == sent
+    assert result["diff"][0].get("is_adset_budget_sharing_enabled") == {"false": False, "true": True}.get(sent)
+
+
+def test_budget_sharing_flag_must_be_boolean(graph):
+    assert plan([{**CAMPAIGN, "is_adset_budget_sharing_enabled": "no"}])["error"] == "invalid_argument"
+    assert graph.calls == []
+
+
+def test_ad_set_bid_strategy_passed_through(graph):
+    plan([{**AD_SET, "campaign_id": "123", "bid_strategy": "LOWEST_COST_WITHOUT_CAP"}])
+    assert graph.posts()[0]["data"]["bid_strategy"] == "LOWEST_COST_WITHOUT_CAP"
+    graph.calls.clear()
+    assert plan([{**AD_SET, "campaign_id": "123", "bid_strategy": ""}])["error"] == "invalid_argument"
+    assert graph.calls == []
+
+
 class Clock:
     def __init__(self):
         self.now = 1000.0
@@ -614,6 +674,23 @@ def test_pending_token_cap(graph, monkeypatch):
     assert list(meta_mcp._pending) == tokens[1:]
     assert meta_mcp.apply_changes(tokens[0], gate=allow)["error"] == "invalid_argument"
     assert meta_mcp.apply_changes(tokens[2], gate=allow)["outcome"] == "applied"
+
+
+def test_failed_state_read_at_apply_keeps_token(graph, monkeypatch):
+    token = plan([UPDATE])["confirm"]
+    graph.calls.clear()
+
+    def flaky(method, url, *args, **kwargs):
+        if method == "GET" and url.endswith("/901"):
+            monkeypatch.setattr(meta_mcp, "_http", graph)
+            raise requests.exceptions.ConnectionError("reset")
+        return graph(method, url, *args, **kwargs)
+
+    monkeypatch.setattr(meta_mcp, "_http", flaky)
+    assert meta_mcp.apply_changes(token, gate=allow)["error"] == "upstream_error"
+    assert graph.posts() == []
+    assert meta_mcp.apply_changes(token, gate=allow)["outcome"] == "applied"
+    assert len(graph.posts(dry_run=False)) == 1
 
 
 def test_concurrent_redeem_sends_once(graph):

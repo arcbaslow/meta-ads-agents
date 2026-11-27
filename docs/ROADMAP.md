@@ -244,7 +244,7 @@ Behaviour that may be intended. The code was left alone.
 2. **Date range includes today.** `compute_date_range` (`meta_insights.py:33`) returns `days + 1` dates ending today, and the tests assert it. Today is partial, so period totals and comparisons are low. The new modules use complete days ending yesterday.
 3. **Summary labels.** Resolved: fetch account-level period reach instead of summing reach, and replace `days` with `rows` in the JSON summary.
 4. **Funnel tail.** `build_funnel` appends events that are not funnel steps after Purchase, with drop-off figures (`meta_events.py:105`).
-5. **OAuth scopes.** `meta_auth.py:23` requests `ads_management`, `read_insights` and `business_management`. The toolkit is read-only, and `read_insights` is a Pages permission. `ads_read` may be enough.
+5. **OAuth scopes.** `meta_auth.py:23` requests `ads_management`, `read_insights` and `business_management`. The adapters only read, and `read_insights` is a Pages permission. `ads_read` may be enough for them; the write path in `meta_mcp.py` uses its own system-user token from `meta-credentials.json` and needs `ads_management`.
 6. **App secret on the command line.** `--app-secret` (`meta_auth.py:335`) ends up in shell history, which `SECURITY.md` lists as in scope.
 7. **Credentials file against environment.** `CLAUDE.md` says tokens come from the environment only. The file is still the default, and `META_ACCESS_TOKEN` now takes precedence. Should the file be deprecated?
 8. **Benchmarks file.** `skills/meta-ads/references/benchmarks.md` lists CTR, CPC, CPM, CPA and ROAS by vertical with no source. The official server has a benchmark tool backed by Meta's data.

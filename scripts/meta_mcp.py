@@ -45,7 +45,7 @@ _STALE_CONFIRM = (
 _CONFLICT_HINT = "The account or the objects changed since the plan. Nothing was sent. Plan again."
 _MAY_EXIST = "No answer came back from Meta, so the object may exist. Read the account before retrying."
 _PLAN_HINT = (
-    "No campaign, ad set, creative or ad was changed; new media in the plan was uploaded to the "
+    "No campaign, ad set, creative or ad was changed; any new media in the plan was uploaded to the "
     "account library. Review the diff, then call apply_changes with confirm and the same "
     "profile within 10 minutes; the token works once. Entries validated at_apply are checked by "
     "Meta only when sent."
@@ -57,10 +57,11 @@ _PARTIAL_HINT = (
 
 _FIELDS = {
     "create_campaign": ({"id", "name", "objective", "special_ad_categories"},
-                        {"daily_budget", "lifetime_budget", "bid_strategy"}),
+                        {"daily_budget", "lifetime_budget", "bid_strategy",
+                         "is_adset_budget_sharing_enabled"}),
     "create_ad_set": ({"id", "campaign_id", "name", "optimization_goal", "billing_event", "targeting"},
-                      {"daily_budget", "lifetime_budget", "bid_amount", "promoted_object",
-                       "start_time", "end_time"}),
+                      {"daily_budget", "lifetime_budget", "bid_amount", "bid_strategy",
+                       "promoted_object", "start_time", "end_time"}),
     "create_creative": ({"id", "name", "page_id", "message", "link", "call_to_action"},
                         {"instagram_user_id", "image", "video", "cover", "headline", "description",
                          "url_tags"}),
@@ -84,7 +85,9 @@ _EDITS = {
     "end_time": ("ad_set",),
 }
 _MEDIA_FORMS = {"image": ("upload", "hash"), "video": ("upload", "video_id"), "cover": ("upload", "hash")}
-_MIME_TYPES = {"IMAGE_PNG", "IMAGE_JPEG", "VIDEO_MP4", "VIDEO_QUICKTIME"}
+# Meta picks the file type from the part's extension; the stored file is named by its handle.
+_MIME_TYPES = {"IMAGE_PNG": ("upload.png", "image/png"), "IMAGE_JPEG": ("upload.jpg", "image/jpeg"),
+               "VIDEO_MP4": ("upload.mp4", "video/mp4"), "VIDEO_QUICKTIME": ("upload.mov", "video/quicktime")}
 _SEND_ORDER = ("create_creative", "create_campaign", "create_ad_set", "create_ad", "update", "set_status")
 _ID = re.compile(r"[a-z][a-z0-9_]{0,30}")
 _META_ID = re.compile(r"[0-9]{1,30}")
@@ -168,7 +171,7 @@ def _graph_failure(body):
 
 
 def _form(data):
-    return {key: json.dumps(value) if isinstance(value, (dict, list)) else value
+    return {key: json.dumps(value) if isinstance(value, (dict, list, bool)) else value
             for key, value in data.items()}
 
 
@@ -269,6 +272,8 @@ def _validate(operations, creds, uploads):
                 ok = isinstance(value, int) and not isinstance(value, bool) and value > 0
             elif key in ("targeting", "promoted_object"):
                 ok = isinstance(value, dict)
+            elif key == "is_adset_budget_sharing_enabled":
+                ok = isinstance(value, bool)
             elif key == "special_ad_categories":
                 ok = isinstance(value, list) and all(isinstance(v, str) and v for v in value)
             elif key == "ids":
@@ -394,15 +399,17 @@ def _state(creds, account_id, operations):
         if not ids:
             continue
         try:
-            found = _call(creds, "GET", "", params={"ids": ",".join(ids), "fields": ",".join(fields)})
+            # v26.0 dropped the ?ids= multi-get, so each object is read on its own.
+            found = {object_id: _call(creds, "GET", object_id, params={"fields": ",".join(fields)})
+                     for object_id in ids}
         except _Failure as exc:
+            if exc.category == "not_found":
+                raise _Failure("not_found", f"Operation {i}: an object was not found.") from None
             if exc.category != "invalid_argument":
                 raise
             raise _Failure("invalid_argument",
                            f"Operation {i}: Meta refused to read an object; check the ids and resource.") from None
-        if any(not isinstance(found.get(object_id), dict) for object_id in ids):
-            raise _Failure("not_found", f"Operation {i}: an object was not found.")
-        rows[i] = {object_id: found[object_id] for object_id in ids}
+        rows[i] = found
         state["ops"].append(rows[i])
         if any(f"act_{row.get('account_id')}" != account_id for row in rows[i].values()):
             problems.append(_Failure("invalid_argument", f"Operation {i}: an object is not in this ad account."))
@@ -435,8 +442,8 @@ def _upload(creds, account_id, info):
     try:
         if mime.startswith("IMAGE_"):
             with open(path, "rb") as fh:
-                body = _call(creds, "POST", f"{account_id}/adimages", files={
-                    "filename": (path.name, fh, "image/" + mime[6:].lower())})
+                body = _call(creds, "POST", f"{account_id}/adimages",
+                             files={"filename": (_MIME_TYPES[mime][0], fh, _MIME_TYPES[mime][1])})
             return str(next(iter(body["images"].values()))["hash"])
         start = _call(creds, "POST", f"{account_id}/advideos",
                       data={"upload_phase": "start", "file_size": info["size_bytes"]})
@@ -447,7 +454,7 @@ def _upload(creds, account_id, info):
                 fh.seek(offset)
                 part = _call(creds, "POST", f"{account_id}/advideos", data={
                     "upload_phase": "transfer", "upload_session_id": session, "start_offset": offset,
-                }, files={"video_file_chunk": ("chunk", fh.read(end - offset))})
+                }, files={"video_file_chunk": (_MIME_TYPES[mime][0], fh.read(end - offset), _MIME_TYPES[mime][1])})
                 if int(part["start_offset"]) <= offset:
                     raise _Failure("upstream_error", _HINTS["upstream_error"])
                 offset, end = int(part["start_offset"]), int(part["end_offset"])
@@ -470,6 +477,9 @@ def _requests(account_id, op, media, created):
     kind = op["op"]
     if kind == "create_campaign":
         data = {key: value for key, value in op.items() if key not in ("op", "id")}
+        if "daily_budget" not in op and "lifetime_budget" not in op:
+            # Meta refuses a campaign without its own budget unless this is stated.
+            data.setdefault("is_adset_budget_sharing_enabled", False)
         return [(f"{account_id}/campaigns", {**data, "status": "PAUSED"})]
     if kind == "create_ad_set":
         data = {key: value for key, value in op.items() if key not in ("op", "id")}
@@ -531,10 +541,11 @@ def plan_changes(account_id: str, operations: list[dict], profile: str | None = 
 
     Each operation has "op" and exactly these fields ([] = optional):
     - create_campaign: id, name, objective, special_ad_categories (list, may be empty),
-      [daily_budget, lifetime_budget, bid_strategy]. Created PAUSED.
+      [daily_budget, lifetime_budget, bid_strategy, is_adset_budget_sharing_enabled (boolean,
+      false when the campaign has no budget of its own)]. Created PAUSED.
     - create_ad_set: id, campaign_id (Meta ID or $id), name, optimization_goal, billing_event,
-      targeting (object), [daily_budget, lifetime_budget, bid_amount, promoted_object, start_time,
-      end_time]. Created PAUSED.
+      targeting (object), [daily_budget, lifetime_budget, bid_amount, bid_strategy, promoted_object,
+      start_time, end_time]. Created PAUSED.
     - create_creative: id, name, page_id, [instagram_user_id], exactly one of image
       ({"upload": handle} or {"hash": ...}) or video ({"upload": handle} or {"video_id": ...}),
       cover (with video only; image forms), message, link, [headline, description],
@@ -589,10 +600,17 @@ def plan_changes(account_id: str, operations: list[dict], profile: str | None = 
                 upload = op[role].get("upload")
                 entry[role] = {"meta_id": _media_id(op, role, media),
                                **({"sha256": files[upload]["sha256"]} if upload else {})}
+        if op["op"] == "create_campaign":
+            sent = _requests(account_id, op, media, {})[0][1]
+            if "is_adset_budget_sharing_enabled" in sent:
+                entry["is_adset_budget_sharing_enabled"] = sent["is_adset_budget_sharing_enabled"]
         if op["op"] == "update":
             field = next(field for field in _EDITS if field in op)
             row = rows[i][op["object_id"]]
-            entry.update({"field": field, "from": row.get(field), "to": op[field],
+            current = row.get(field)
+            if field in ("daily_budget", "lifetime_budget", "bid_amount") and str(current).isdigit():
+                current = int(current)
+            entry.update({"field": field, "from": current, "to": op[field],
                           "effective_status": row.get("effective_status")})
         if op["op"] == "set_status":
             entry["changes"] = [{"object_id": object_id, "from": row.get("status"), "to": "PAUSED",
@@ -655,12 +673,15 @@ def apply_changes(confirm: str, profile: str | None = None, *, gate, uploads=Non
     _validate(operations, creds, uploads)
     files = _files(operations, name, account_id, uploads)
     media = {handle: _known_media((account_id, info["sha256"])) for handle, info in files.items()}
-    digest = _bound(account_id, name, operations, files, media)
-    with _lock:
-        entry = _pending.pop(confirm, None)
-    if entry is None or entry[0] != digest:
+    if entry[0] != _bound(account_id, name, operations, files, media):
+        with _lock:
+            _pending.pop(confirm, None)
         raise _Failure("invalid_argument", _STALE_CONFIRM)
     state, _, problem = _state(creds, account_id, operations)
+    # Redeemed only after the state read, so a failed read leaves the token usable.
+    with _lock:
+        if _pending.pop(confirm, None) is None:
+            raise _Failure("invalid_argument", _STALE_CONFIRM)
     if _digest(state) != entry[1]:
         raise _Failure("conflict", _CONFLICT_HINT)
     if problem is not None:
