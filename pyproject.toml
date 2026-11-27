@@ -25,7 +25,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "facebook-business>=26.0.0,<27",
+    "facebook-business>=26.0.0,<28",
     "fpdf2>=2.8.1",
 ]
 
